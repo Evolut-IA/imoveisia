@@ -2,7 +2,9 @@ import OpenAI from "openai";
 
 // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
 const openai = new OpenAI({ 
-  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || "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" 
+  apiKey: process.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY_ENV_VAR || (() => {
+    throw new Error("OPENAI_API_KEY environment variable is required");
+  })()
 });
 
 export interface PropertyRecommendation {
@@ -34,8 +36,8 @@ REGRAS FUNDAMENTAIS:
 **ESTRATÉGIA DE RECOMENDAÇÃO**:
 
 **SITUAÇÃO 1 - USUÁRIO VAGO/NÃO QUER DETALHAR**:
-- Se o usuário diz coisas como "tanto faz", "pode ser qualquer", "me mostre opções"
-- MOSTRE 1-3 propriedades diversas (diferentes preços/locais/tipos)
+- Se o usuário diz coisas como "tanto faz", "pode ser qualquer", "me mostre opções", "não sei", "qualquer coisa serve"
+- SEMPRE MOSTRE 1-3 propriedades diversas (diferentes preços/locais/tipos)
 - Exemplo: "Aqui estão algumas opções interessantes que tenho disponíveis!"
 - USE propertyIds com 1-3 propriedades
 
@@ -43,18 +45,20 @@ REGRAS FUNDAMENTAIS:
 - Se o usuário menciona critérios específicos (local, tipo, preço, quartos)
 - MOSTRE propriedades que mais se aproximam desses critérios
 - Se não tiver exato, mostre similares: "Não tenho exatamente isso, mas veja estas opções similares"
-- USE propertyIds com as melhores correspondências
+- USE propertyIds com as melhores correspondências (1-3 propriedades)
 
 **SITUAÇÃO 3 - CONVERSAÇÃO INICIAL**:
 - Primeira mensagem genérica tipo "oi", "olá", "quero um imóvel"
-- Pergunte sobre preferências mas seja breve
-- Se o usuário resistir a dar detalhes, mostre opções na próxima mensagem
-- USE propertyIds: [] apenas na primeira interação
+- Se for primeira mensagem vaga, pode perguntar brevemente OU já mostrar opções
+- Se o usuário já mostrou resistência ou parece impaciente, pule perguntas e mostre opções
+- REGRA: Na dúvida, sempre prefira mostrar opções
 
 **IMPORTANTE**:
 - Se o usuário mencionou QUALQUER critério (mesmo só 1), já pode mostrar opções
 - Não insista em perguntas se o usuário não quer detalhar
-- Sempre prefira mostrar algo do que não mostrar nada
+- SEMPRE prefira mostrar algo do que não mostrar nada
+- Se estiver na dúvida entre perguntar mais ou mostrar opções, MOSTRE OPÇÕES
+- Mesmo sem parâmetros específicos, pode mostrar 1-3 casas diversas
 - Use o contexto da conversa para escolher as melhores opções
 
 **CONVERSAÇÃO SOCIAL**:
@@ -62,7 +66,7 @@ REGRAS FUNDAMENTAIS:
 - USE SEMPRE propertyIds: []
 
 PROPRIEDADES DISPONÍVEIS${recentlyRecommendedIds.length > 0 ? ' (excluindo propriedades já recomendadas recentemente)' : ''}:
-${filteredProperties.map(p => `ID: ${p.id} | ${p.title} | ${p.city}, ${p.neighborhood} | R$ ${p.price.toLocaleString('pt-BR')} | ${p.description}`).join('\n')}
+${filteredProperties.length > 0 ? filteredProperties.map(p => `ID: ${p.id} | ${p.title} | ${p.city}, ${p.neighborhood} | R$ ${p.price.toLocaleString('pt-BR')} | ${p.description}`).join('\n') : 'NENHUMA PROPRIEDADE DISPONÍVEL NO MOMENTO - Informe ao usuário que não temos propriedades para mostrar agora.'}
 
 Responda SEMPRE em JSON com:
 {
@@ -141,12 +145,12 @@ export interface MessageChunk {
 }
 
 export function splitMessageIntoChunks(message: string): MessageChunk[] {
-  // Se a mensagem for muito curta, retorna como um chunk único
-  if (message.length <= 150) {
+  // Para mensagens curtas (até 400 caracteres), retorna como um chunk único
+  if (message.length <= 400) {
     return [{
       content: message,
       isLast: true,
-      delay: Math.floor(Math.random() * 3000) + 1000 // 1-4 segundos
+      delay: Math.floor(Math.random() * 2000) + 1000 // 1-3 segundos
     }];
   }
 
@@ -162,21 +166,22 @@ export function splitMessageIntoChunks(message: string): MessageChunk[] {
       sentence += '. ';
     }
     
-    // Se adicionar esta frase não ultrapassar 200 caracteres, adiciona ao chunk atual
-    if (currentChunk.length + sentence.length <= 200) {
+    // Aumenta limite para 500 caracteres para evitar cortar frases
+    if (currentChunk.length + sentence.length <= 500) {
       currentChunk += sentence;
     } else {
-      // Se o chunk atual não estiver vazio, salva ele
-      if (currentChunk.trim()) {
+      // Se o chunk atual tem pelo menos 150 caracteres, salva ele
+      if (currentChunk.trim() && currentChunk.length >= 150) {
         chunks.push({
           content: currentChunk.trim(),
           isLast: false,
-          delay: Math.floor(Math.random() * 3000) + 1000 // 1-4 segundos
+          delay: Math.floor(Math.random() * 2000) + 1000 // 1-3 segundos
         });
+        currentChunk = sentence;
+      } else {
+        // Se o chunk é muito pequeno, continua adicionando
+        currentChunk += sentence;
       }
-      
-      // Inicia um novo chunk com a frase atual
-      currentChunk = sentence;
     }
   }
   
@@ -185,36 +190,45 @@ export function splitMessageIntoChunks(message: string): MessageChunk[] {
     chunks.push({
       content: currentChunk.trim(),
       isLast: true,
-      delay: Math.floor(Math.random() * 3000) + 1000 // 1-4 segundos
+      delay: Math.floor(Math.random() * 2000) + 1000 // 1-3 segundos
     });
   }
   
-  // Se não criou chunks (mensagem muito longa sem pontuação), força divisão por caracteres
-  if (chunks.length === 0) {
+  // Se não criou chunks ou só criou um chunk muito pequeno, força divisão por palavras mais inteligente
+  if (chunks.length === 0 || (chunks.length === 1 && chunks[0].content.length > 500)) {
     const words = message.split(' ').filter(w => w.trim().length > 0);
+    const newChunks: MessageChunk[] = [];
     let currentChunk = '';
     
     for (const word of words) {
-      if (currentChunk.length + word.length + 1 <= 200) {
+      // Usa limite de 500 caracteres para palavras também
+      if (currentChunk.length + word.length + 1 <= 500) {
         currentChunk += (currentChunk ? ' ' : '') + word;
       } else {
-        if (currentChunk.trim()) {
-          chunks.push({
+        if (currentChunk.trim() && currentChunk.length >= 100) {
+          newChunks.push({
             content: currentChunk.trim(),
             isLast: false,
-            delay: Math.floor(Math.random() * 3000) + 1000
+            delay: Math.floor(Math.random() * 2000) + 1000
           });
+          currentChunk = word;
+        } else {
+          currentChunk += (currentChunk ? ' ' : '') + word;
         }
-        currentChunk = word;
       }
     }
     
     if (currentChunk.trim()) {
-      chunks.push({
+      newChunks.push({
         content: currentChunk.trim(),
         isLast: true,
-        delay: Math.floor(Math.random() * 3000) + 1000
+        delay: Math.floor(Math.random() * 2000) + 1000
       });
+    }
+    
+    // Se conseguiu criar chunks melhores, usa eles
+    if (newChunks.length > 0) {
+      return newChunks;
     }
   }
   
