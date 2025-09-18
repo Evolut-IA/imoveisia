@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWebSocket } from "@/hooks/use-websocket";
-import { Home, Bot, User, Send, MapPin, X, Bed, Bath, Ruler } from "lucide-react";
+import { Home, Bot, Send, MapPin, X, Bed, Bath, Ruler } from "lucide-react";
 
 interface Property {
   id: string;
@@ -313,9 +313,6 @@ export function ChatInterface() {
               <>
                 <div className="bg-primary rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
                   <p className="text-primary-foreground text-sm sm:text-base">{message.content}</p>
-                </div>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-accent rounded-full flex items-center justify-center flex-shrink-0">
-                  <User className="w-3 h-3 sm:w-4 sm:h-4 text-accent-foreground" />
                 </div>
               </>
             ) : (
