@@ -204,19 +204,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const messageChunks = splitMessageIntoChunks(aiResponse.responseMessage);
           
           let accumulatedContent = '';
+          let totalDelay = 0;
           
+          // Enviar chunks de texto primeiro
           for (let i = 0; i < messageChunks.length; i++) {
             const chunk = messageChunks[i];
             accumulatedContent += chunk.content;
             
             setTimeout(() => {
               if (ws.readyState === WebSocket.OPEN) {
-                if (chunk.isLast) {
-                  // Última mensagem: envia tudo junto com propriedades
+                if (chunk.isLast && recommendedProperties.length === 0) {
+                  // Última mensagem de texto sem propriedades
                   ws.send(JSON.stringify({
                     type: 'bot_response',
                     content: accumulatedContent,
-                    properties: recommendedProperties,
+                    properties: [],
                     reasoning: aiResponse.reasoning,
                     isChunked: true,
                     isLastChunk: true
@@ -229,6 +231,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }));
                   
                   session.isTyping = false;
+                } else if (chunk.isLast && recommendedProperties.length > 0) {
+                  // Última mensagem de texto - enviar sem propriedades primeiro
+                  ws.send(JSON.stringify({
+                    type: 'bot_response',
+                    content: accumulatedContent,
+                    properties: [],
+                    reasoning: aiResponse.reasoning,
+                    isChunked: true,
+                    isLastChunk: false
+                  }));
                 } else {
                   // Chunk intermediário: apenas texto
                   ws.send(JSON.stringify({
@@ -239,7 +251,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
                   }));
                 }
               }
-            }, i === 0 ? 0 : messageChunks.slice(0, i).reduce((sum, c) => sum + c.delay, 0));
+            }, totalDelay);
+            
+            totalDelay += chunk.delay;
+          }
+          
+          // Depois do texto, enviar cada propriedade individualmente com delays
+          if (recommendedProperties.length > 0) {
+            for (let i = 0; i < recommendedProperties.length; i++) {
+              const property = recommendedProperties[i];
+              const isLastProperty = i === recommendedProperties.length - 1;
+              const propertyDelay = Math.floor(Math.random() * 2000) + 2000; // 2-4 segundos para propriedades
+              
+              setTimeout(() => {
+                if (ws.readyState === WebSocket.OPEN) {
+                  ws.send(JSON.stringify({
+                    type: 'bot_property',
+                    properties: [property], // Envia uma propriedade por vez
+                    isLastProperty: isLastProperty,
+                    reasoning: isLastProperty ? aiResponse.reasoning : undefined
+                  }));
+                  
+                  // Se é a última propriedade, para de "digitar"
+                  if (isLastProperty) {
+                    ws.send(JSON.stringify({
+                      type: 'typing',
+                      isTyping: false
+                    }));
+                    
+                    session.isTyping = false;
+                  }
+                }
+              }, totalDelay + (i * propertyDelay));
+            }
           }
 
         } else if (message.type === 'ping') {

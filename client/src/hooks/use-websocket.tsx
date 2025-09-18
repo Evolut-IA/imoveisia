@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 export interface ChatMessage {
-  type: 'user_message' | 'bot_response' | 'bot_response_chunk' | 'typing' | 'error' | 'session_start';
+  type: 'user_message' | 'bot_response' | 'bot_response_chunk' | 'bot_property' | 'typing' | 'error' | 'session_start';
   content?: string;
   properties?: any[];
   reasoning?: string;
@@ -10,6 +10,7 @@ export interface ChatMessage {
   message?: string;
   isChunked?: boolean;
   isLastChunk?: boolean;
+  isLastProperty?: boolean;
 }
 
 export interface UseWebSocketReturn {
@@ -88,7 +89,6 @@ export function useWebSocket(): UseWebSocketReturn {
             break;
             
           case 'bot_response':
-            setIsTyping(false);
             if (data.isChunked && data.isLastChunk) {
               // Última mensagem chunked - substitui a mensagem anterior com todas as propriedades
               setMessages(prev => {
@@ -116,6 +116,21 @@ export function useWebSocket(): UseWebSocketReturn {
               setMessages(prev => [...prev, data]);
             }
             currentBotMessage.current = '';
+            break;
+            
+          case 'bot_property':
+            // Propriedade individual enviada separadamente
+            setMessages(prev => [...prev, {
+              type: 'bot_response',
+              content: '', // Sem texto, apenas propriedade
+              properties: data.properties || [],
+              reasoning: data.reasoning
+            }]);
+            
+            // Se é a última propriedade, para de digitar
+            if (data.isLastProperty) {
+              setIsTyping(false);
+            }
             break;
             
           case 'error':
