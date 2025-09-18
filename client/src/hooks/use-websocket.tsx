@@ -63,7 +63,9 @@ export function useWebSocket(): UseWebSocketReturn {
             
           case 'bot_response_chunk':
             // Acumula chunks da mensagem
-            currentBotMessage.current += data.content || '';
+            const newChunkContent = data.content || '';
+            currentBotMessage.current = (currentBotMessage.current || '') + newChunkContent;
+            
             setMessages(prev => {
               const newMessages = [...prev];
               const lastMessageIndex = newMessages.length - 1;
@@ -75,10 +77,10 @@ export function useWebSocket(): UseWebSocketReturn {
                   content: currentBotMessage.current
                 };
               } else {
-                // Cria nova mensagem chunk
+                // Cria nova mensagem chunk apenas com o conteúdo acumulado
                 newMessages.push({
                   type: 'bot_response',
-                  content: currentBotMessage.current,
+                  content: newChunkContent, // Mostra apenas o novo chunk, não o acumulado
                   isChunked: true,
                   isLastChunk: false
                 });
