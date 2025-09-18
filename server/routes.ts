@@ -96,11 +96,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     chatSessions.set(sessionId, session);
     console.log(`New chat session created: ${sessionId}`);
 
-    // Send welcome message
+    // Send session start
     ws.send(JSON.stringify({
       type: 'session_start',
-      sessionId: sessionId,
-      message: 'Conectado ao CasaBot! Como posso ajudar você a encontrar sua casa ideal? 🏠'
+      sessionId: sessionId
     }));
 
     ws.on('message', async (data) => {
