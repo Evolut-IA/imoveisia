@@ -246,12 +246,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
             neighborhood: p.neighborhood
           }));
 
-          // Generate AI response with duplicate prevention
+          // Check if we have a saved conversation with user name
+          let userName: string | null = null;
+          let shouldUseUserName = false;
+          
+          try {
+            const conversation = await storage.getConversationBySessionId(sessionId);
+            if (conversation && conversation.leadName) {
+              userName = conversation.leadName;
+              
+              // Count user messages since lead capture to determine personalization frequency
+              const userMessages = chatHistory.filter(msg => msg.role === 'user');
+              const userMessageCount = userMessages.length;
+              
+              // Use name immediately after lead form (first message after capture) 
+              // or every 3rd user message thereafter
+              if (userMessageCount === 1) {
+                // First message after lead capture - always use name
+                shouldUseUserName = true;
+              } else if (userMessageCount > 1 && (userMessageCount - 1) % 3 === 0) {
+                // Every 3rd message after the first: 4th, 7th, 10th, etc.
+                shouldUseUserName = true;
+              }
+            }
+          } catch (error) {
+            // If no conversation found, proceed without personalization
+            console.log(`No saved conversation found for session ${sessionId}`);
+          }
+
+          // Generate AI response with duplicate prevention and personalization
           const aiResponse = await generateChatResponse(
             message.content,
             historyForAI,
             propertiesForAI,
-            recentlyRecommendedIds
+            recentlyRecommendedIds,
+            userName,
+            shouldUseUserName
           );
 
           console.log(`[DEBUG] AI Response for session ${sessionId}:`, {

@@ -22,6 +22,7 @@ export interface IStorage {
   
   saveConversation(conversation: InsertConversation): Promise<Conversation>;
   updateConversation(sessionId: string, messages: any[]): Promise<number>;
+  getConversationBySessionId(sessionId: string): Promise<Conversation | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -154,6 +155,11 @@ export class MemStorage implements IStorage {
       return 1;
     }
     return 0;
+  }
+
+  async getConversationBySessionId(sessionId: string): Promise<Conversation | undefined> {
+    return Array.from(this.conversations.values())
+      .find(conv => conv.sessionId === sessionId);
   }
 
   private async initializeSampleData() {
@@ -1171,6 +1177,12 @@ export class DatabaseStorage implements IStorage {
       .where(eq(conversations.sessionId, sessionId));
     
     return result.rowCount || 0;
+  }
+
+  async getConversationBySessionId(sessionId: string): Promise<Conversation | undefined> {
+    const [conversation] = await db.select().from(conversations)
+      .where(eq(conversations.sessionId, sessionId));
+    return conversation || undefined;
   }
 }
 
