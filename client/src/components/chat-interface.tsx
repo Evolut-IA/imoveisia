@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { useWebSocket } from "@/hooks/use-websocket";
-import { Home, Bot, User, Send, MapPin } from "lucide-react";
+import { Home, Bot, User, Send, MapPin, X, Bed, Bath, Ruler } from "lucide-react";
 
 interface Property {
   id: string;
@@ -23,7 +21,9 @@ interface Property {
 export function ChatInterface() {
   const { isConnected, sendMessage, messages, isTyping } = useWebSocket();
   const [inputMessage, setInputMessage] = useState("");
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -51,8 +51,244 @@ export function ChatInterface() {
     }).format(numPrice);
   };
 
-  const PropertyCard = ({ property }: { property: Property }) => (
-    <div className="property-card bg-card border border-border rounded-lg p-3 sm:p-4 w-full max-w-sm sm:max-w-md" data-testid={`property-card-${property.id}`}>
+  const getUnsplashImages = (propertyType: string) => {
+    const baseUrl = "https://images.unsplash.com/";
+    const params = "?ixlib=rb-4.0.3&w=400&h=400&fit=crop";
+    
+    const imageUrls: { [key: string]: string[] } = {
+      "apartamento": [
+        `${baseUrl}photo-1545324418-cc1a3fa10c00${params}`, // Modern apartment
+        `${baseUrl}photo-1502672260266-1c1ef2d93688${params}`, // Living room
+        `${baseUrl}photo-1484154218962-a197022b5858${params}`, // Kitchen
+        `${baseUrl}photo-1540518614846-7eded47d24e5${params}`, // Bedroom
+        `${baseUrl}photo-1584622650111-993a426fbf0a${params}`, // Bathroom
+        `${baseUrl}photo-1574362848149-11496d93a7c7${params}`, // Balcony view
+      ],
+      "casa": [
+        `${baseUrl}photo-1570129477492-45c003edd2be${params}`, // Modern house
+        `${baseUrl}photo-1505843513577-22bb7d21e455${params}`, // Living room
+        `${baseUrl}photo-1556912173-3bb406ef7e77${params}`, // Kitchen
+        `${baseUrl}photo-1586023492125-27b2c045efd7${params}`, // Bedroom
+        `${baseUrl}photo-1620626011761-996317b8d101${params}`, // Backyard
+        `${baseUrl}photo-1554995207-c18c203602cb${params}`, // Exterior
+      ],
+      "cobertura": [
+        `${baseUrl}photo-1560448204-e02f11c3d0e2${params}`, // Penthouse
+        `${baseUrl}photo-1571508601891-ca5e7a713859${params}`, // Terrace
+        `${baseUrl}photo-1449844908441-8829872d2607${params}`, // City view
+        `${baseUrl}photo-1512917774080-9991f1c4c750${params}`, // Living room
+        `${baseUrl}photo-1541123437800-1bb1317badc2${params}`, // Kitchen
+        `${baseUrl}photo-1578662996442-48f60103fc96${params}`, // Rooftop
+      ],
+      "studio": [
+        `${baseUrl}photo-1554995207-c18c203602cb${params}`, // Studio apartment
+        `${baseUrl}photo-1586023492125-27b2c045efd7${params}`, // Compact living
+        `${baseUrl}photo-1484154218962-a197022b5858${params}`, // Kitchen area
+        `${baseUrl}photo-1540518614846-7eded47d24e5${params}`, // Sleeping area
+        `${baseUrl}photo-1574362848149-11496d93a7c7${params}`, // Window view
+        `${baseUrl}photo-1584622650111-993a426fbf0a${params}`, // Bathroom
+      ],
+      "loft": [
+        `${baseUrl}photo-1586023492125-27b2c045efd7${params}`, // Industrial loft
+        `${baseUrl}photo-1574362848149-11496d93a7c7${params}`, // High ceilings
+        `${baseUrl}photo-1556912173-3bb406ef7e77${params}`, // Open kitchen
+        `${baseUrl}photo-1502672260266-1c1ef2d93688${params}`, // Living space
+        `${baseUrl}photo-1571508601891-ca5e7a713859${params}`, // Windows
+        `${baseUrl}photo-1540518614846-7eded47d24e5${params}`, // Bedroom area
+      ]
+    };
+
+    const type = propertyType.toLowerCase();
+    return imageUrls[type] || imageUrls["apartamento"];
+  };
+
+  const PropertyGallery = ({ property, onClose }: { property: Property; onClose: () => void }) => {
+    const images = getUnsplashImages(property.propertyType);
+    const closeButtonRef = useRef<HTMLButtonElement>(null);
+
+    // Gerenciamento de foco e teclas
+    useEffect(() => {
+      // Salvar o elemento com foco atual
+      lastFocusedElementRef.current = document.activeElement as HTMLElement;
+      
+      // Salvar o valor anterior do overflow do body
+      const previousOverflow = document.body.style.overflow;
+      
+      // Focar no botão de fechar quando o modal abrir
+      if (closeButtonRef.current) {
+        closeButtonRef.current.focus();
+      }
+
+      // Prevenir scroll do body
+      document.body.style.overflow = 'hidden';
+
+      // Event listener para tecla Escape
+      const handleEscape = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          handleClose();
+        }
+      };
+
+      document.addEventListener('keydown', handleEscape);
+
+      // Cleanup
+      return () => {
+        document.removeEventListener('keydown', handleEscape);
+        document.body.style.overflow = previousOverflow;
+        
+        // Retornar foco para o elemento que abriu o modal
+        if (lastFocusedElementRef.current) {
+          lastFocusedElementRef.current.focus();
+        }
+      };
+    }, []);
+
+    const handleClose = () => {
+      onClose();
+    };
+
+    const handleOverlayClick = (e: React.MouseEvent) => {
+      // Fechar modal apenas se clicar no overlay (fundo), não no conteúdo
+      if (e.target === e.currentTarget) {
+        handleClose();
+      }
+    };
+
+    return (
+      <div 
+        className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" 
+        data-testid="property-gallery"
+        onClick={handleOverlayClick}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="gallery-title"
+      >
+        <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <h2 id="gallery-title" className="text-xl font-bold text-card-foreground" data-testid="gallery-title">
+              {property.title}
+            </h2>
+            <Button
+              ref={closeButtonRef}
+              variant="ghost"
+              size="sm"
+              onClick={handleClose}
+              className="h-8 w-8 p-0"
+              data-testid="close-gallery"
+              aria-label="Fechar galeria"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
+
+          <div className="p-4">
+            {/* Image Grid */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6" data-testid="image-grid">
+              {images.slice(0, 6).map((imageUrl, index) => (
+                <div key={index} className="aspect-square overflow-hidden rounded-lg">
+                  <img
+                    src={imageUrl}
+                    alt={`${property.title} - Imagem ${index + 1}`}
+                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
+                    onError={(e) => {
+                      e.currentTarget.src = "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=400";
+                    }}
+                    data-testid={`gallery-image-${index}`}
+                  />
+                </div>
+              ))}
+            </div>
+
+            {/* Property Details */}
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Left Column - Basic Info */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-card-foreground mb-2">Informações Básicas</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex items-center">
+                      <Home className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <span className="text-muted-foreground mr-2">Tipo:</span>
+                      <span className="text-card-foreground capitalize">{property.propertyType}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Bed className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <span className="text-muted-foreground mr-2">Quartos:</span>
+                      <span className="text-card-foreground">{property.bedrooms}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Bath className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <span className="text-muted-foreground mr-2">Banheiros:</span>
+                      <span className="text-card-foreground">{property.bathrooms}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <Ruler className="w-4 h-4 mr-2 text-muted-foreground" />
+                      <span className="text-muted-foreground mr-2">Área:</span>
+                      <span className="text-card-foreground">{property.area}m²</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-card-foreground mb-2">Localização</h3>
+                  <div className="flex items-start">
+                    <MapPin className="w-4 h-4 mr-2 text-muted-foreground mt-0.5 flex-shrink-0" />
+                    <div className="text-sm">
+                      <p className="text-card-foreground">{property.neighborhood}</p>
+                      <p className="text-muted-foreground">{property.city}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right Column - Price and Description */}
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold text-card-foreground mb-2">Preço</h3>
+                  <div className="text-2xl font-bold text-primary">
+                    {formatPrice(property.price)}
+                  </div>
+                </div>
+
+                {property.description && (
+                  <div>
+                    <h3 className="font-semibold text-card-foreground mb-2">Descrição</h3>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {property.description}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const PropertyCard = ({ property }: { property: Property }) => {
+    const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
+      // Salvar referência do card que será focado novamente quando o modal fechar
+      lastFocusedElementRef.current = e.currentTarget;
+      setSelectedProperty(property);
+    };
+
+    return (
+      <div 
+        className="property-card bg-card border border-border rounded-lg p-3 sm:p-4 w-full max-w-sm sm:max-w-md cursor-pointer hover:bg-muted/50 transition-colors" 
+        data-testid={`property-card-${property.id}`}
+        onClick={handleCardClick}
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleCardClick(e as any);
+          }
+        }}
+        role="button"
+        aria-label={`Ver galeria do imóvel ${property.title}`}
+      >
       <img 
         src={property.mainImage} 
         alt={property.title}
@@ -75,9 +311,10 @@ export function ChatInterface() {
         <span className="truncate" data-testid={`property-location-${property.id}`}>
           {property.neighborhood}, {property.city}
         </span>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="lg:col-span-2 bg-card rounded-lg">
@@ -196,6 +433,14 @@ export function ChatInterface() {
           </Button>
         </form>
       </div>
+
+      {/* Property Gallery Modal */}
+      {selectedProperty && (
+        <PropertyGallery 
+          property={selectedProperty} 
+          onClose={() => setSelectedProperty(null)}
+        />
+      )}
     </div>
   );
 }
