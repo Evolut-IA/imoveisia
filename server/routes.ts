@@ -255,18 +255,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
             if (conversation && conversation.leadName) {
               userName = conversation.leadName;
               
-              // Count user messages since lead capture to determine personalization frequency
-              const userMessages = chatHistory.filter(msg => msg.role === 'user');
-              const userMessageCount = userMessages.length;
+              // Count only user messages that occurred AFTER the lead was captured
+              const leadCaptureTime = new Date(conversation.createdAt || 0).getTime();
+              
+              // Filter messages that happened after lead capture
+              const postCaptureUserMessages = chatHistory.filter(msg => {
+                if (msg.role !== 'user') return false;
+                
+                // Parse timestamp from message (handle both string and number formats)
+                const msgTime = msg.timestamp ? new Date(msg.timestamp).getTime() : 0;
+                return msgTime > leadCaptureTime;
+              });
+              
+              const postCaptureCount = postCaptureUserMessages.length;
               
               // Use name immediately after lead form (first message after capture) 
               // or every 3rd user message thereafter
-              if (userMessageCount === 1) {
+              if (postCaptureCount === 1) {
                 // First message after lead capture - always use name
                 shouldUseUserName = true;
-              } else if (userMessageCount > 1 && (userMessageCount - 1) % 3 === 0) {
+              } else if (postCaptureCount > 1 && (postCaptureCount - 1) % 3 === 0) {
                 // Every 3rd message after the first: 4th, 7th, 10th, etc.
                 shouldUseUserName = true;
+              }
+              
+              console.log(`[DEBUG] Lead capture time: ${conversation.createdAt}, Post-capture user messages: ${postCaptureCount}, Should use name: ${shouldUseUserName}`);
+              
+              if (userName && shouldUseUserName) {
+                console.log(`[PERSONALIZATION] Using name "${userName}" for session ${sessionId} (post-capture message #${postCaptureCount})`);
               }
             }
           } catch (error) {
