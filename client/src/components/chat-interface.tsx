@@ -21,9 +21,8 @@ interface Property {
 export function ChatInterface() {
   const { isConnected, sendMessage, messages, isTyping } = useWebSocket();
   const [inputMessage, setInputMessage] = useState("");
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
+  const [expandedProperties, setExpandedProperties] = useState<Property[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const lastFocusedElementRef = useRef<HTMLElement | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -102,165 +101,82 @@ export function ChatInterface() {
     return imageUrls[type] || imageUrls["apartamento"];
   };
 
-  const PropertyGallery = ({ property, onClose }: { property: Property; onClose: () => void }) => {
+  const PropertyDetails = ({ property }: { property: Property }) => {
     const images = getUnsplashImages(property.propertyType);
-    const closeButtonRef = useRef<HTMLButtonElement>(null);
-
-    // Gerenciamento de foco e teclas
-    useEffect(() => {
-      // Salvar o elemento com foco atual
-      lastFocusedElementRef.current = document.activeElement as HTMLElement;
-      
-      // Salvar o valor anterior do overflow do body
-      const previousOverflow = document.body.style.overflow;
-      
-      // Focar no botão de fechar quando o modal abrir
-      if (closeButtonRef.current) {
-        closeButtonRef.current.focus();
-      }
-
-      // Prevenir scroll do body
-      document.body.style.overflow = 'hidden';
-
-      // Event listener para tecla Escape
-      const handleEscape = (e: KeyboardEvent) => {
-        if (e.key === 'Escape') {
-          handleClose();
-        }
-      };
-
-      document.addEventListener('keydown', handleEscape);
-
-      // Cleanup
-      return () => {
-        document.removeEventListener('keydown', handleEscape);
-        document.body.style.overflow = previousOverflow;
-        
-        // Retornar foco para o elemento que abriu o modal
-        if (lastFocusedElementRef.current) {
-          lastFocusedElementRef.current.focus();
-        }
-      };
-    }, []);
-
-    const handleClose = () => {
-      onClose();
-    };
-
-    const handleOverlayClick = (e: React.MouseEvent) => {
-      // Fechar modal apenas se clicar no overlay (fundo), não no conteúdo
-      if (e.target === e.currentTarget) {
-        handleClose();
-      }
-    };
 
     return (
-      <div 
-        className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" 
-        data-testid="property-gallery"
-        onClick={handleOverlayClick}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="gallery-title"
-      >
-        <div className="bg-card rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <h2 id="gallery-title" className="text-xl font-bold text-card-foreground" data-testid="gallery-title">
-              {property.title}
-            </h2>
-            <Button
-              ref={closeButtonRef}
-              variant="ghost"
-              size="sm"
-              onClick={handleClose}
-              className="h-8 w-8 p-0"
-              data-testid="close-gallery"
-              aria-label="Fechar galeria"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+      <div className="bg-muted rounded-lg p-4 max-w-full space-y-4">
+        {/* Título */}
+        <h3 className="text-lg font-bold text-card-foreground" data-testid="property-details-title">
+          {property.title}
+        </h3>
+
+        {/* Grid de Imagens */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2" data-testid="property-images">
+          {images.slice(0, 6).map((imageUrl, index) => (
+            <div key={index} className="aspect-square overflow-hidden rounded-lg">
+              <img
+                src={imageUrl}
+                alt={`${property.title} - Imagem ${index + 1}`}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.src = "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=400";
+                }}
+                data-testid={`property-detail-image-${index}`}
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Informações Básicas */}
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="space-y-3">
+            <h4 className="font-semibold text-card-foreground">Informações Básicas</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex items-center">
+                <Home className="w-4 h-4 mr-2 text-muted-foreground" />
+                <span className="text-muted-foreground mr-2">Tipo:</span>
+                <span className="text-card-foreground capitalize">{property.propertyType}</span>
+              </div>
+              <div className="flex items-center">
+                <Bed className="w-4 h-4 mr-2 text-muted-foreground" />
+                <span className="text-muted-foreground mr-2">Quartos:</span>
+                <span className="text-card-foreground">{property.bedrooms}</span>
+              </div>
+              <div className="flex items-center">
+                <Bath className="w-4 h-4 mr-2 text-muted-foreground" />
+                <span className="text-muted-foreground mr-2">Banheiros:</span>
+                <span className="text-card-foreground">{property.bathrooms}</span>
+              </div>
+              <div className="flex items-center">
+                <Ruler className="w-4 h-4 mr-2 text-muted-foreground" />
+                <span className="text-muted-foreground mr-2">Área:</span>
+                <span className="text-card-foreground">{property.area}m²</span>
+              </div>
+              <div className="flex items-center">
+                <MapPin className="w-4 h-4 mr-2 text-muted-foreground" />
+                <span className="text-muted-foreground mr-2">Localização:</span>
+                <span className="text-card-foreground">{property.neighborhood}, {property.city}</span>
+              </div>
+            </div>
           </div>
 
-          <div className="p-4">
-            {/* Image Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-6" data-testid="image-grid">
-              {images.slice(0, 6).map((imageUrl, index) => (
-                <div key={index} className="aspect-square overflow-hidden rounded-lg">
-                  <img
-                    src={imageUrl}
-                    alt={`${property.title} - Imagem ${index + 1}`}
-                    className="w-full h-full object-cover hover:scale-105 transition-transform duration-200"
-                    onError={(e) => {
-                      e.currentTarget.src = "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=400";
-                    }}
-                    data-testid={`gallery-image-${index}`}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* Property Details */}
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Left Column - Basic Info */}
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-card-foreground mb-2">Informações Básicas</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center">
-                      <Home className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <span className="text-muted-foreground mr-2">Tipo:</span>
-                      <span className="text-card-foreground capitalize">{property.propertyType}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Bed className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <span className="text-muted-foreground mr-2">Quartos:</span>
-                      <span className="text-card-foreground">{property.bedrooms}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Bath className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <span className="text-muted-foreground mr-2">Banheiros:</span>
-                      <span className="text-card-foreground">{property.bathrooms}</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Ruler className="w-4 h-4 mr-2 text-muted-foreground" />
-                      <span className="text-muted-foreground mr-2">Área:</span>
-                      <span className="text-card-foreground">{property.area}m²</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold text-card-foreground mb-2">Localização</h3>
-                  <div className="flex items-start">
-                    <MapPin className="w-4 h-4 mr-2 text-muted-foreground mt-0.5 flex-shrink-0" />
-                    <div className="text-sm">
-                      <p className="text-card-foreground">{property.neighborhood}</p>
-                      <p className="text-muted-foreground">{property.city}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right Column - Price and Description */}
-              <div className="space-y-4">
-                <div>
-                  <h3 className="font-semibold text-card-foreground mb-2">Preço</h3>
-                  <div className="text-2xl font-bold text-primary">
-                    {formatPrice(property.price)}
-                  </div>
-                </div>
-
-                {property.description && (
-                  <div>
-                    <h3 className="font-semibold text-card-foreground mb-2">Descrição</h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {property.description}
-                    </p>
-                  </div>
-                )}
+          <div className="space-y-3">
+            <div>
+              <h4 className="font-semibold text-card-foreground mb-2">Preço</h4>
+              <div className="text-xl font-bold text-primary">
+                {formatPrice(property.price)}
               </div>
             </div>
+
+            {property.description && (
+              <div>
+                <h4 className="font-semibold text-card-foreground mb-2">Descrição</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {property.description}
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -269,9 +185,8 @@ export function ChatInterface() {
 
   const PropertyCard = ({ property }: { property: Property }) => {
     const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
-      // Salvar referência do card que será focado novamente quando o modal fechar
-      lastFocusedElementRef.current = e.currentTarget;
-      setSelectedProperty(property);
+      // Adicionar propriedade expandida ao chat
+      setExpandedProperties(prev => [...prev, property]);
     };
 
     return (
@@ -391,6 +306,18 @@ export function ChatInterface() {
           </div>
         ))}
 
+        {/* Expanded Properties */}
+        {expandedProperties.map((property, index) => (
+          <div key={`expanded-${property.id}-${index}`} className="flex items-start space-x-2 sm:space-x-3 message-animation">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+              <Home className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+            </div>
+            <div className="flex-1 max-w-full">
+              <PropertyDetails property={property} />
+            </div>
+          </div>
+        ))}
+
         {/* Typing Indicator */}
         {isTyping && (
           <div className="flex items-start space-x-2 sm:space-x-3 typing-indicator" data-testid="typing-indicator">
@@ -434,13 +361,6 @@ export function ChatInterface() {
         </form>
       </div>
 
-      {/* Property Gallery Modal */}
-      {selectedProperty && (
-        <PropertyGallery 
-          property={selectedProperty} 
-          onClose={() => setSelectedProperty(null)}
-        />
-      )}
     </div>
   );
 }
