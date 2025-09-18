@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { Home, Send, MapPin, X, Bed, Bath, Ruler } from "lucide-react";
-import roboImage from "@assets/image_1758181144966.png";
+import roboImage from "../assets/robo.png";
 
 interface Property {
   id: string;
