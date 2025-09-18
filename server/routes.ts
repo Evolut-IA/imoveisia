@@ -2,7 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
-import { insertPropertySchema, insertChatMessageSchema } from "@shared/schema";
+import { insertPropertySchema, insertChatMessageSchema, insertConversationSchema } from "@shared/schema";
 import { generateChatResponse, splitMessageIntoChunks, generateContextualMessage } from "./services/openai";
 import { randomUUID } from "crypto";
 
@@ -110,6 +110,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Conversation routes for lead capture
+  app.post("/api/conversations", async (req, res) => {
+    try {
+      const validatedData = insertConversationSchema.parse(req.body);
+      const conversation = await storage.saveConversation(validatedData);
+      res.status(201).json(conversation);
+    } catch (error) {
+      console.error("Error saving conversation:", error);
+      res.status(400).json({ message: "Failed to save conversation: " + (error instanceof Error ? error.message : String(error)) });
+    }
+  });
+
+  app.put("/api/conversations/:sessionId", async (req, res) => {
+    try {
+      const { messages } = req.body;
+      if (!Array.isArray(messages)) {
+        return res.status(400).json({ message: "Messages must be an array" });
+      }
+      
+      await storage.updateConversation(req.params.sessionId, messages);
+      res.json({ message: "Conversation updated successfully" });
+    } catch (error) {
+      console.error("Error updating conversation:", error);
+      res.status(500).json({ message: "Failed to update conversation" });
+    }
+  });
 
   // WebSocket chat handling
   wss.on('connection', (ws: WebSocket, req) => {

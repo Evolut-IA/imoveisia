@@ -1170,5 +1170,5 @@ export class DatabaseStorage implements IStorage {
   }
 }
 
-// Use MemStorage for now until database is ready
-export const storage = new MemStorage();
+// Use DatabaseStorage for persistent storage
+export const storage = new DatabaseStorage();
