@@ -21,10 +21,16 @@ interface Property {
 
 
 interface ChatEvent {
-  type: 'message' | 'expanded_property' | 'contextual_message';
+  type: 'message' | 'expanded_property' | 'contextual_message' | 'lead_form';
   timestamp: number;
   data: any;
   id: string;
+}
+
+interface LeadForm {
+  name: string;
+  whatsapp: string;
+  privacyAccepted: boolean;
 }
 
 export function ChatInterface() {
@@ -32,6 +38,11 @@ export function ChatInterface() {
   const [inputMessage, setInputMessage] = useState("");
   const [expandedProperties, setExpandedProperties] = useState<Property[]>([]);
   const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
+  const [hasShownProperty, setHasShownProperty] = useState(false);
+  const [hasCapturedLead, setHasCapturedLead] = useState(false);
+  const [showLeadForm, setShowLeadForm] = useState(false);
+  const [pendingMessage, setPendingMessage] = useState("");
+  const [leadForm, setLeadForm] = useState<LeadForm>({ name: "", whatsapp: "+55 ", privacyAccepted: false });
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const messageTimestamps = useRef<Map<string, number>>(new Map());
@@ -43,7 +54,17 @@ export function ChatInterface() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping, chatEvents]);
+  }, [messages, isTyping, chatEvents, showLeadForm]);
+
+  // Detect when properties have been shown
+  useEffect(() => {
+    const hasProperties = messages.some(message => 
+      message.type === 'bot_response' && message.properties && message.properties.length > 0
+    );
+    if (hasProperties) {
+      setHasShownProperty(true);
+    }
+  }, [messages]);
 
   // Sync messages from WebSocket with chat events using stable timestamps
   useEffect(() => {
@@ -164,12 +185,106 @@ export function ChatInterface() {
     };
   }, [expandedProperties]);
 
+  const formatWhatsApp = (digits: string) => {
+    // Sempre começa com +55
+    let formatted = '+55 ';
+    
+    // Adiciona os números restantes com formatação (sem contar o 55)
+    if (digits.length > 0) {
+      if (digits.length <= 2) {
+        // DDD: (11)
+        formatted += `(${digits.slice(0, 2)}`;
+      } else if (digits.length <= 7) {
+        // DDD + início do número: (11) 9740
+        formatted += `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}`;
+      } else if (digits.length <= 10) {
+        // 10 dígitos: (11) 7404-1539
+        formatted += `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6, 10)}`;
+      } else if (digits.length <= 11) {
+        // 11 dígitos: (11) 97404-1539
+        formatted += `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7, 11)}`;
+      }
+    }
+    
+    return formatted;
+  };
+
+  const getWhatsAppNumbers = (formatted: string) => {
+    // Remove tudo exceto números e retira o código do país 55
+    const allNumbers = formatted.replace(/\D/g, '');
+    return allNumbers.startsWith('55') ? allNumbers.slice(2) : allNumbers;
+  };
+
+  const handleWhatsAppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    // Não permite apagar o +55
+    if (value.startsWith('+55')) {
+      const digits = getWhatsAppNumbers(value);
+      if (digits.length <= 11) {
+        const formatted = formatWhatsApp(digits);
+        setLeadForm(prev => ({ ...prev, whatsapp: formatted }));
+      }
+    }
+  };
+
+  const isWhatsAppComplete = () => {
+    const numbers = getWhatsAppNumbers(leadForm.whatsapp);
+    return numbers.length >= 10 && numbers.length <= 11;
+  };
+
+  const canSubmitLeadForm = () => {
+    return leadForm.name.trim() && isWhatsAppComplete() && leadForm.privacyAccepted;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!inputMessage.trim() || !isConnected || isTyping) return;
 
+    // Verificar se precisa mostrar formulário de lead (apenas uma vez)
+    if (hasShownProperty && !hasCapturedLead && !showLeadForm) {
+      setPendingMessage(inputMessage.trim());
+      setShowLeadForm(true);
+      setInputMessage("");
+      
+      // Adicionar formulário à timeline
+      setChatEvents(prev => {
+        const newEvent: ChatEvent = {
+          type: 'lead_form',
+          timestamp: eventCounter.current++,
+          data: {},
+          id: `lead-form-${Date.now()}`
+        };
+        const updatedEvents = [...prev, newEvent];
+        return updatedEvents.sort((a, b) => a.timestamp - b.timestamp);
+      });
+      
+      return;
+    }
+
     sendMessage(inputMessage.trim());
     setInputMessage("");
+  };
+
+  const handleLeadFormSubmit = () => {
+    if (!canSubmitLeadForm()) return;
+    
+    // Processar dados do lead aqui (salvar no backend se necessário)
+    console.log('Lead capturado:', leadForm);
+    
+    // Marcar como capturado para não mostrar novamente
+    setHasCapturedLead(true);
+    
+    // Remover formulário da timeline
+    setChatEvents(prev => prev.filter(event => event.type !== 'lead_form'));
+    
+    // Enviar mensagem pendente
+    if (pendingMessage) {
+      sendMessage(pendingMessage);
+      setPendingMessage("");
+    }
+    
+    // Esconder formulário
+    setShowLeadForm(false);
   };
 
   const formatPrice = (price: string) => {
@@ -382,6 +497,71 @@ export function ChatInterface() {
           </div>
         );
 
+      case 'lead_form':
+        return (
+          <div key={event.id} className="flex items-start space-x-2 sm:space-x-3 message-animation">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+              <img src="/Robo.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
+            </div>
+            <div className="bg-muted rounded-lg p-4 sm:p-6 max-w-[90%] sm:max-w-lg">
+              <p className="text-foreground text-sm sm:text-base mb-4">
+                Para continuar sua busca pelo imóvel ideal gratuitamente preencha seu nome e whatsapp.
+              </p>
+              
+              <div className="space-y-4">
+                {/* Campo Nome */}
+                <div>
+                  <Input
+                    value={leadForm.name}
+                    onChange={(e) => setLeadForm(prev => ({ ...prev, name: e.target.value }))}
+                    placeholder="Seu nome completo"
+                    className="w-full"
+                    data-testid="lead-form-name"
+                  />
+                </div>
+
+                {/* Campo WhatsApp */}
+                <div>
+                  <Input
+                    value={leadForm.whatsapp}
+                    onChange={handleWhatsAppChange}
+                    placeholder="+55 (11) 99999-9999"
+                    className="w-full"
+                    data-testid="lead-form-whatsapp"
+                  />
+                </div>
+
+                {/* Checkbox de políticas - só aparece se WhatsApp completo */}
+                {isWhatsAppComplete() && (
+                  <div className="flex items-start space-x-2">
+                    <input
+                      type="checkbox"
+                      id="privacy-checkbox"
+                      checked={leadForm.privacyAccepted}
+                      onChange={(e) => setLeadForm(prev => ({ ...prev, privacyAccepted: e.target.checked }))}
+                      className="mt-1"
+                      data-testid="lead-form-privacy"
+                    />
+                    <label htmlFor="privacy-checkbox" className="text-xs sm:text-sm text-foreground cursor-pointer">
+                      Concordo com as políticas de privacidade e autorizo o contato via WhatsApp.
+                    </label>
+                  </div>
+                )}
+
+                {/* Botão Continuar */}
+                <Button
+                  onClick={handleLeadFormSubmit}
+                  disabled={!canSubmitLeadForm()}
+                  className="w-full"
+                  data-testid="lead-form-submit"
+                >
+                  Continuar
+                </Button>
+              </div>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -498,16 +678,22 @@ export function ChatInterface() {
             <Input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder={isTyping ? "Aguarde o bot responder..." : "Digite sua mensagem..."}
+              placeholder={
+                showLeadForm 
+                  ? "Preencha o formulário acima para continuar..." 
+                  : isTyping 
+                    ? "Aguarde o bot responder..." 
+                    : "Digite sua mensagem..."
+              }
               className="w-full !bg-input !border-border !text-foreground placeholder:!text-muted-foreground rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-all"
-              disabled={!isConnected || isTyping}
+              disabled={!isConnected || isTyping || showLeadForm}
               data-testid="message-input"
             />
           </div>
           <Button 
             type="submit" 
             className="bg-primary text-primary-foreground px-3 sm:px-4 py-2 sm:py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            disabled={!isConnected || !inputMessage.trim() || isTyping}
+            disabled={!isConnected || !inputMessage.trim() || isTyping || showLeadForm}
             data-testid="send-button"
           >
             <Send className="w-4 h-4" />
