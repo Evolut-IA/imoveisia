@@ -147,6 +147,74 @@ export interface MessageChunk {
   delay: number;
 }
 
+export async function generateContextualMessage(property: {
+  id: string;
+  title: string;
+  propertyType: string;
+  description: string;
+  city: string;
+  neighborhood: string;
+  bedrooms: number;
+  bathrooms: number;
+  area: number;
+  price: string;
+}): Promise<string> {
+  try {
+    const systemPrompt = `Você é o CasaBot, um assistente imobiliário inteligente. 
+
+Sua tarefa é gerar uma mensagem contextual personalizada e envolvente após o usuário ter visualizado os detalhes de um imóvel.
+
+REGRAS PARA A MENSAGEM:
+1. **LIMITE DE CARACTERES**: Entre 100 e 300 caracteres
+2. **TOM**: Amigável, consultor, personalizado para o imóvel específico  
+3. **OBJETIVO**: Engajar o usuário e incentivar feedback sobre o imóvel mostrado
+4. **PERSONALIZAÇÃO**: Use características específicas do imóvel (localização, tipo, diferenciais)
+
+ESTRUTURA IDEAL:
+- Comentário específico sobre o imóvel (destaque 1-2 características interessantes)
+- Pergunta engajadora sobre adequação às necessidades do usuário
+- Oferta para mostrar alternativas caso não seja ideal
+
+EXEMPLOS DE BONS ELEMENTOS:
+- "Este apartamento em [bairro] tem uma localização privilegiada..."  
+- "Com [X] quartos, parece ideal para..."
+- "O preço de R$ [valor] está dentro da média da região..."
+- "A área de [X]m² oferece bastante espaço..."
+
+Evite emojis em excesso e seja natural na linguagem.`;
+
+    const propertyInfo = `
+IMÓVEL ANALISADO:
+- Título: ${property.title}
+- Tipo: ${property.propertyType}
+- Localização: ${property.neighborhood}, ${property.city}
+- Quartos: ${property.bedrooms}
+- Banheiros: ${property.bathrooms}  
+- Área: ${property.area}m²
+- Preço: R$ ${property.price}
+- Descrição: ${property.description}
+
+Gere uma mensagem contextual personalizada sobre este imóvel específico.`;
+
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: propertyInfo }
+      ],
+      max_completion_tokens: 150,
+    });
+
+    return response.choices[0].message.content?.trim() || 
+           `Este imóvel "${property.title}" desperta seu interesse? Me conte o que você achou! 🏠`;
+           
+  } catch (error) {
+    console.error("Erro ao gerar mensagem contextual:", error);
+    // Fallback para uma mensagem personalizada básica
+    return `Este ${property.propertyType.toLowerCase()} em ${property.neighborhood} parece interessante para você? Me conte suas impressões! 🏠`;
+  }
+}
+
 export function splitMessageIntoChunks(message: string): MessageChunk[] {
   // Para mensagens curtas (até 400 caracteres), retorna como um chunk único
   if (message.length <= 400) {

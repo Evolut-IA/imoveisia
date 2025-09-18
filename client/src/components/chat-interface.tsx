@@ -22,6 +22,7 @@ interface Property {
 interface ContextualMessage {
   id: string;
   propertyTitle: string;
+  content: string;
   timestamp: number;
 }
 
@@ -41,7 +42,7 @@ export function ChatInterface() {
     scrollToBottom();
   }, [messages, isTyping, expandedProperties, contextualMessages]);
 
-  // Effect para adicionar mensagem contextual após 1 segundo
+  // Effect para adicionar mensagem contextual com IA após 1 segundo
   useEffect(() => {
     if (expandedProperties.length > 0) {
       const lastProperty = expandedProperties[expandedProperties.length - 1];
@@ -52,16 +53,52 @@ export function ChatInterface() {
         clearTimeout(timeoutRef.current);
       }
       
-      // Agenda mensagem contextual após 1 segundo
-      timeoutRef.current = setTimeout(() => {
-        setContextualMessages(prev => [
-          ...prev,
-          {
-            id: messageId,
-            propertyTitle: lastProperty.title,
-            timestamp: Date.now()
+      // Agenda geração de mensagem contextual após 1 segundo
+      timeoutRef.current = setTimeout(async () => {
+        try {
+          const response = await fetch(`/api/properties/${lastProperty.id}/contextual-message`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            }
+          });
+          
+          if (response.ok) {
+            const result = await response.json();
+            setContextualMessages(prev => [
+              ...prev,
+              {
+                id: messageId,
+                propertyTitle: lastProperty.title,
+                content: result.message,
+                timestamp: Date.now()
+              }
+            ]);
+          } else {
+            // Fallback em caso de erro da API
+            setContextualMessages(prev => [
+              ...prev,
+              {
+                id: messageId,
+                propertyTitle: lastProperty.title,
+                content: `Este ${lastProperty.propertyType.toLowerCase()} em ${lastProperty.neighborhood} desperta seu interesse? Me conte suas impressões! 🏠`,
+                timestamp: Date.now()
+              }
+            ]);
           }
-        ]);
+        } catch (error) {
+          console.error('Erro ao gerar mensagem contextual:', error);
+          // Fallback em caso de erro
+          setContextualMessages(prev => [
+            ...prev,
+            {
+              id: messageId,
+              propertyTitle: lastProperty.title,
+              content: `Este ${lastProperty.propertyType.toLowerCase()} em ${lastProperty.neighborhood} desperta seu interesse? Me conte suas impressões! 🏠`,
+              timestamp: Date.now()
+            }
+          ]);
+        }
       }, 1000);
     }
     
@@ -362,11 +399,8 @@ export function ChatInterface() {
               <img src="/Robo.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
             </div>
             <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
-              <p className="text-foreground text-sm sm:text-base">
-                Este imóvel "{contextMsg.propertyTitle}" é o que você está procurando? 🏠
-              </p>
-              <p className="text-foreground mt-2 text-sm sm:text-base">
-                Se não for exatamente o que você tem em mente, me conte mais detalhes sobre suas preferências e posso mostrar outras opções! 😊
+              <p className="text-foreground text-sm sm:text-base" data-testid={`contextual-message-${contextMsg.id}`}>
+                {contextMsg.content}
               </p>
             </div>
           </div>

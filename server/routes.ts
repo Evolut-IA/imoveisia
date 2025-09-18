@@ -3,7 +3,7 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertPropertySchema, insertChatMessageSchema } from "@shared/schema";
-import { generateChatResponse, splitMessageIntoChunks } from "./services/openai";
+import { generateChatResponse, splitMessageIntoChunks, generateContextualMessage } from "./services/openai";
 import { randomUUID } from "crypto";
 
 interface ChatSession {
@@ -68,6 +68,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Error fetching property:", error);
       res.status(500).json({ message: "Failed to fetch property" });
+    }
+  });
+
+  // Generate contextual message for property
+  app.post("/api/properties/:id/contextual-message", async (req, res) => {
+    try {
+      const property = await storage.getProperty(req.params.id);
+      if (!property) {
+        return res.status(404).json({ message: "Property not found" });
+      }
+
+      const contextualMessage = await generateContextualMessage({
+        id: property.id,
+        title: property.title,
+        propertyType: property.propertyType,
+        description: property.description || '',
+        city: property.city,
+        neighborhood: property.neighborhood,
+        bedrooms: property.bedrooms || 0,
+        bathrooms: property.bathrooms || 0,
+        area: property.area || 0,
+        price: property.price
+      });
+
+      res.json({ message: contextualMessage });
+    } catch (error) {
+      console.error("Error generating contextual message:", error);
+      res.status(500).json({ message: "Failed to generate contextual message" });
     }
   });
 
