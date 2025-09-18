@@ -130,9 +130,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
             isTyping: true
           }));
 
-          // Get chat history for context
+          // Get chat history for context - últimas 5 trocas (10 mensagens)
           const chatHistory = await storage.getChatHistory(sessionId);
-          const historyForAI = chatHistory.slice(-10).map(msg => ({
+          
+          // Pega as últimas 5 trocas (user + assistant pairs)
+          const lastExchanges = [];
+          let userCount = 0;
+          
+          // Itera do final para o início
+          for (let i = chatHistory.length - 1; i >= 0 && userCount < 5; i--) {
+            const msg = chatHistory[i];
+            lastExchanges.unshift(msg);
+            
+            if (msg.role === 'user') {
+              userCount++;
+            }
+          }
+          
+          const historyForAI = lastExchanges.map(msg => ({
             role: msg.role,
             content: msg.content
           }));
