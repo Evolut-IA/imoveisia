@@ -289,11 +289,15 @@ export function ChatInterface() {
     }
   };
 
-  // Atualizar conversa automaticamente quando novos eventos são adicionados
+  // Atualizar conversa automaticamente com debounce para evitar calls excessivos
   useEffect(() => {
-    if (hasCapturedLead && sessionId && chatEvents.length > 0) {
+    if (!hasCapturedLead || !sessionId || chatEvents.length === 0) return;
+    
+    const debounceTimer = setTimeout(() => {
       updateConversationMessages(sessionId, chatEvents);
-    }
+    }, 1500); // Aguarda 1.5s sem mudanças antes de salvar
+
+    return () => clearTimeout(debounceTimer);
   }, [chatEvents, hasCapturedLead, sessionId]);
 
   const handleLeadFormSubmit = async () => {

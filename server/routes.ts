@@ -125,12 +125,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/conversations/:sessionId", async (req, res) => {
     try {
       const { messages } = req.body;
+      
+      // Validar se messages é um array com limite de tamanho
       if (!Array.isArray(messages)) {
         return res.status(400).json({ message: "Messages must be an array" });
       }
       
-      await storage.updateConversation(req.params.sessionId, messages);
-      res.json({ message: "Conversation updated successfully" });
+      if (messages.length > 1000) {
+        return res.status(400).json({ message: "Messages array too large (max 1000)" });
+      }
+      
+      // Validar estrutura básica de cada mensagem
+      for (const msg of messages) {
+        if (!msg.type || !msg.timestamp) {
+          return res.status(400).json({ message: "Invalid message format: type and timestamp required" });
+        }
+      }
+      
+      const updatedRows = await storage.updateConversation(req.params.sessionId, messages);
+      
+      if (updatedRows === 0) {
+        return res.status(404).json({ message: "Conversation not found for this session" });
+      }
+      
+      res.json({ message: "Conversation updated successfully", updatedRows });
     } catch (error) {
       console.error("Error updating conversation:", error);
       res.status(500).json({ message: "Failed to update conversation" });

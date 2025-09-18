@@ -21,7 +21,7 @@ export interface IStorage {
   getChatHistory(sessionId: string): Promise<ChatMessage[]>;
   
   saveConversation(conversation: InsertConversation): Promise<Conversation>;
-  updateConversation(sessionId: string, messages: any[]): Promise<void>;
+  updateConversation(sessionId: string, messages: any[]): Promise<number>;
 }
 
 export class MemStorage implements IStorage {
@@ -143,7 +143,7 @@ export class MemStorage implements IStorage {
     return conversation;
   }
 
-  async updateConversation(sessionId: string, messages: any[]): Promise<void> {
+  async updateConversation(sessionId: string, messages: any[]): Promise<number> {
     const conversation = Array.from(this.conversations.values())
       .find(conv => conv.sessionId === sessionId);
     
@@ -151,7 +151,9 @@ export class MemStorage implements IStorage {
       conversation.messages = messages;
       conversation.updatedAt = new Date().toISOString();
       this.conversations.set(conversation.id, conversation);
+      return 1;
     }
+    return 0;
   }
 
   private async initializeSampleData() {
@@ -1160,13 +1162,15 @@ export class DatabaseStorage implements IStorage {
     return conversation;
   }
 
-  async updateConversation(sessionId: string, messages: any[]): Promise<void> {
-    await db.update(conversations)
+  async updateConversation(sessionId: string, messages: any[]): Promise<number> {
+    const result = await db.update(conversations)
       .set({ 
         messages: messages, 
         updatedAt: sql`now()` 
       })
       .where(eq(conversations.sessionId, sessionId));
+    
+    return result.rowCount || 0;
   }
 }
 
