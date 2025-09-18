@@ -101,6 +101,11 @@ export class VectorDatabase {
     }
     return undefined;
   }
+
+  clearProperties(): void {
+    this.properties = [];
+    console.log("Cleared all properties from vector database");
+  }
 }
 
 export const vectorDB = new VectorDatabase();
