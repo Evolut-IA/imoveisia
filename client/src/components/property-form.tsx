@@ -97,32 +97,35 @@ export function PropertyForm({ isVisible, onClose }: PropertyFormProps) {
   return (
     <div className="bg-card rounded-xl border border-border shadow-lg" data-testid="property-form">
       {/* Header */}
-      <div className="p-6 border-b border-border">
+      <div className="p-4 sm:p-6 border-b border-border">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-card-foreground">Cadastrar Imóvel</h2>
+          <div className="flex-1 min-w-0">
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground truncate">Cadastrar Imóvel</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1">Adicione um novo imóvel ao banco de dados</p>
+          </div>
           <Button 
             variant="ghost" 
             size="sm" 
             onClick={onClose}
+            className="ml-2 flex-shrink-0"
             data-testid="close-form-button"
           >
             <X className="w-4 h-4" />
           </Button>
         </div>
-        <p className="text-sm text-muted-foreground mt-1">Adicione um novo imóvel ao banco de dados</p>
       </div>
 
       {/* Form */}
-      <div className="p-6 max-h-[600px] overflow-y-auto chat-scroll">
+      <div className="p-4 sm:p-6 max-h-[500px] sm:max-h-[600px] overflow-y-auto chat-scroll">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6" data-testid="property-registration-form">
             {/* Basic Information */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-medium text-card-foreground border-b border-border pb-2">
+            <div className="space-y-3 sm:space-y-4">
+              <h3 className="text-base sm:text-lg font-medium text-card-foreground border-b border-border pb-2">
                 Informações Básicas
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
                 <FormField
                   control={form.control}
                   name="title"
