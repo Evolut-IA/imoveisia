@@ -20,49 +20,40 @@ export default function HomePage() {
   return (
     <div className="min-h-screen gradient-bg">
       {/* Header */}
-      <header className="bg-card border-b border-border">
-        <div className="container mx-auto px-4 sm:px-6 py-4">
+      <header className="border-b border-border/20">
+        <div className="container mx-auto px-4 sm:px-6 py-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-lg flex items-center justify-center">
-                <Home className="w-5 h-5 sm:w-6 sm:h-6 text-primary-foreground" />
-              </div>
-              <div className="flex items-center space-x-2 sm:space-x-3">
-                <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-foreground" data-testid="app-title">CasaBot</h1>
-                <span className="hidden sm:inline text-xs sm:text-sm text-muted-foreground bg-accent px-2 py-1 rounded-full">
-                  IA Imobiliária
-                </span>
-              </div>
+            <div className="flex items-center space-x-3">
+              <h1 className="text-xl sm:text-2xl font-semibold text-foreground" data-testid="app-title">CasaBot</h1>
             </div>
             
             {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center space-x-4">
+            <div className="hidden md:flex items-center space-x-3">
               <Button
                 onClick={toggleForm}
-                className="bg-primary text-primary-foreground px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"
+                variant="ghost"
+                className="text-muted-foreground hover:text-foreground transition-colors"
                 data-testid="register-toggle-button"
               >
                 {isFormVisible ? (
                   <>
-                    <Plus className="w-4 h-4 mr-2 rotate-45" />
-                    Fechar Formulário
+                    <X className="w-4 h-4 mr-2" />
+                    Fechar
                   </>
                 ) : (
                   <>
                     <Plus className="w-4 h-4 mr-2" />
-                    Cadastrar Imóvel
+                    Novo Imóvel
                   </>
                 )}
               </Button>
-              <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                <User className="w-4 h-4 text-muted-foreground" />
-              </div>
             </div>
 
             {/* Mobile Menu Button */}
             <Button
               onClick={toggleMobileMenu}
-              className="md:hidden bg-transparent text-foreground p-2 hover:bg-muted"
+              variant="ghost"
+              className="md:hidden text-muted-foreground hover:text-foreground p-2"
               data-testid="mobile-menu-button"
             >
               {isMobileMenuOpen ? (
@@ -75,34 +66,28 @@ export default function HomePage() {
 
           {/* Mobile Menu */}
           {isMobileMenuOpen && (
-            <div className="md:hidden mt-4 pb-4 border-t border-border pt-4">
-              <div className="flex flex-col space-y-3">
-                <Button
-                  onClick={() => {
-                    toggleForm();
-                    setIsMobileMenuOpen(false);
-                  }}
-                  className="w-full bg-primary text-primary-foreground px-4 py-3 rounded-lg hover:bg-primary/90 transition-colors"
-                  data-testid="mobile-register-toggle-button"
-                >
-                  {isFormVisible ? (
-                    <>
-                      <Plus className="w-4 h-4 mr-2 rotate-45" />
-                      Fechar Formulário
-                    </>
-                  ) : (
-                    <>
-                      <Plus className="w-4 h-4 mr-2" />
-                      Cadastrar Imóvel
-                    </>
-                  )}
-                </Button>
-                <div className="flex items-center justify-center py-2">
-                  <div className="w-8 h-8 bg-muted rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </div>
+            <div className="md:hidden mt-4 pt-4 border-t border-border/20">
+              <Button
+                onClick={() => {
+                  toggleForm();
+                  setIsMobileMenuOpen(false);
+                }}
+                variant="ghost"
+                className="w-full text-left text-muted-foreground hover:text-foreground transition-colors"
+                data-testid="mobile-register-toggle-button"
+              >
+                {isFormVisible ? (
+                  <>
+                    <X className="w-4 h-4 mr-2" />
+                    Fechar
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Novo Imóvel
+                  </>
+                )}
+              </Button>
             </div>
           )}
         </div>
