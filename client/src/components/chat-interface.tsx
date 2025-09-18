@@ -581,7 +581,7 @@ export function ChatInterface() {
                   <Input
                     value={leadForm.name}
                     onChange={(e) => setLeadForm(prev => ({ ...prev, name: e.target.value }))}
-                    placeholder="Seu nome completo"
+                    placeholder="Seu nome e sobrenome"
                     className="w-full"
                     data-testid="lead-form-name"
                   />
