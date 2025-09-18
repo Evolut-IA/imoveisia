@@ -137,9 +137,12 @@ export function ChatInterface() {
                   <Bot className="w-4 h-4 text-primary-foreground" />
                 </div>
                 <div className="space-y-3">
-                  <div className="bg-muted rounded-lg p-4 max-w-md">
-                    <p className="text-foreground">{message.content}</p>
-                  </div>
+                  {/* Só mostra o texto se existir conteúdo */}
+                  {message.content && (
+                    <div className="bg-muted rounded-lg p-4 max-w-md">
+                      <p className="text-foreground">{message.content}</p>
+                    </div>
+                  )}
                   
                   {/* Property Cards */}
                   {message.properties && message.properties.length > 0 && (

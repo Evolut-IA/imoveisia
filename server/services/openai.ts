@@ -153,11 +153,16 @@ export function splitMessageIntoChunks(message: string): MessageChunk[] {
   }
 
   const chunks: MessageChunk[] = [];
-  const sentences = message.split(/[.!?]\s+/);
+  const sentences = message.split(/[.!?]\s+/).filter(s => s.trim().length > 0);
   let currentChunk = '';
   
   for (let i = 0; i < sentences.length; i++) {
-    const sentence = sentences[i] + (i < sentences.length - 1 ? '. ' : '');
+    let sentence = sentences[i].trim();
+    
+    // Adiciona pontuação apenas se não for a última frase
+    if (i < sentences.length - 1) {
+      sentence += '. ';
+    }
     
     // Se adicionar esta frase não ultrapassar 200 caracteres, adiciona ao chunk atual
     if (currentChunk.length + sentence.length <= 200) {
@@ -188,7 +193,7 @@ export function splitMessageIntoChunks(message: string): MessageChunk[] {
   
   // Se não criou chunks (mensagem muito longa sem pontuação), força divisão por caracteres
   if (chunks.length === 0) {
-    const words = message.split(' ');
+    const words = message.split(' ').filter(w => w.trim().length > 0);
     let currentChunk = '';
     
     for (const word of words) {

@@ -120,12 +120,15 @@ export function useWebSocket(): UseWebSocketReturn {
             
           case 'bot_property':
             // Propriedade individual enviada separadamente
-            setMessages(prev => [...prev, {
-              type: 'bot_response',
-              content: '', // Sem texto, apenas propriedade
-              properties: data.properties || [],
-              reasoning: data.reasoning
-            }]);
+            // Só cria nova mensagem se há propriedades para mostrar
+            if (data.properties && data.properties.length > 0) {
+              setMessages(prev => [...prev, {
+                type: 'bot_response',
+                content: undefined, // Sem texto, apenas propriedade
+                properties: data.properties,
+                reasoning: data.reasoning
+              }]);
+            }
             
             // Se é a última propriedade, para de digitar
             if (data.isLastProperty) {
