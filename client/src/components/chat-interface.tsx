@@ -543,7 +543,7 @@ export function ChatInterface() {
                       data-testid="lead-form-privacy"
                     />
                     <label htmlFor="privacy-checkbox" className="text-xs sm:text-sm text-foreground cursor-pointer">
-                      Concordo com as políticas de privacidade e autorizo o contato via WhatsApp.
+                      Concordo com as políticas de privacidade
                     </label>
                   </div>
                 )}
