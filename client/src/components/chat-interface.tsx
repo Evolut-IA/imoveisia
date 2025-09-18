@@ -18,11 +18,19 @@ interface Property {
   mainImage: string;
 }
 
+interface ContextualMessage {
+  id: string;
+  propertyTitle: string;
+  timestamp: number;
+}
+
 export function ChatInterface() {
   const { isConnected, sendMessage, messages, isTyping } = useWebSocket();
   const [inputMessage, setInputMessage] = useState("");
   const [expandedProperties, setExpandedProperties] = useState<Property[]>([]);
+  const [contextualMessages, setContextualMessages] = useState<ContextualMessage[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -30,7 +38,38 @@ export function ChatInterface() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping]);
+  }, [messages, isTyping, expandedProperties, contextualMessages]);
+
+  // Effect para adicionar mensagem contextual após 1 segundo
+  useEffect(() => {
+    if (expandedProperties.length > 0) {
+      const lastProperty = expandedProperties[expandedProperties.length - 1];
+      const messageId = `contextual-${lastProperty.id}-${Date.now()}`;
+      
+      // Clear previous timeout se existir
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      // Agenda mensagem contextual após 1 segundo
+      timeoutRef.current = setTimeout(() => {
+        setContextualMessages(prev => [
+          ...prev,
+          {
+            id: messageId,
+            propertyTitle: lastProperty.title,
+            timestamp: Date.now()
+          }
+        ]);
+      }, 1000);
+    }
+    
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, [expandedProperties]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -191,7 +230,7 @@ export function ChatInterface() {
 
     return (
       <div 
-        className="property-card bg-card border border-border rounded-lg p-3 sm:p-4 w-full max-w-sm sm:max-w-md cursor-pointer hover:bg-muted/50 transition-colors" 
+        className="property-card bg-card border border-border rounded-lg p-3 sm:p-4 w-full max-w-sm sm:max-w-md cursor-pointer" 
         data-testid={`property-card-${property.id}`}
         onClick={handleCardClick}
         tabIndex={0}
@@ -314,6 +353,23 @@ export function ChatInterface() {
             </div>
             <div className="flex-1 max-w-full">
               <PropertyDetails property={property} />
+            </div>
+          </div>
+        ))}
+
+        {/* Contextual Messages */}
+        {contextualMessages.map((contextMsg, index) => (
+          <div key={contextMsg.id} className="flex items-start space-x-2 sm:space-x-3 message-animation">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+              <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+            </div>
+            <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
+              <p className="text-foreground text-sm sm:text-base">
+                Este imóvel "{contextMsg.propertyTitle}" é o que você está procurando? 🏠
+              </p>
+              <p className="text-foreground mt-2 text-sm sm:text-base">
+                Se não for exatamente o que você tem em mente, me conte mais detalhes sobre suas preferências e posso mostrar outras opções! 😊
+              </p>
             </div>
           </div>
         ))}
