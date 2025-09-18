@@ -1068,4 +1068,107 @@ export class MemStorage implements IStorage {
   }
 }
 
+export class DatabaseStorage implements IStorage {
+  async getUser(id: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user || undefined;
+  }
+
+  async createUser(insertUser: InsertUser): Promise<User> {
+    const [user] = await db.insert(users).values(insertUser).returning();
+    return user;
+  }
+
+  async createProperty(insertProperty: InsertProperty): Promise<Property> {
+    // Generate embedding for the property
+    const description = await generatePropertyDescription(insertProperty);
+    const embedding = await generateEmbedding(description);
+
+    const propertyWithEmbedding = {
+      ...insertProperty,
+      embedding: JSON.stringify(embedding),
+      description: insertProperty.description ?? null,
+      address: insertProperty.address ?? null,
+      zipCode: insertProperty.zipCode ?? null,
+      bedrooms: insertProperty.bedrooms ?? null,
+      bathrooms: insertProperty.bathrooms ?? null,
+      parkingSpaces: insertProperty.parkingSpaces ?? null,
+      area: insertProperty.area ?? null,
+      condoFee: insertProperty.condoFee ?? null,
+      iptu: insertProperty.iptu ?? null,
+      amenities: insertProperty.amenities ?? null,
+      mainImage: insertProperty.mainImage ?? null,
+      contactName: insertProperty.contactName ?? null,
+      contactPhone: insertProperty.contactPhone ?? null,
+      contactEmail: insertProperty.contactEmail ?? null
+    };
+
+    const [property] = await db.insert(properties).values(propertyWithEmbedding).returning();
+    
+    // Add to vector database
+    await vectorDB.addProperty(property);
+    
+    return property;
+  }
+
+  async getProperty(id: string): Promise<Property | undefined> {
+    const [property] = await db.select().from(properties).where(eq(properties.id, id));
+    return property || undefined;
+  }
+
+  async getAllProperties(): Promise<Property[]> {
+    return await db.select().from(properties);
+  }
+
+  async searchProperties(query: string, limit: number = 3): Promise<Property[]> {
+    const results = await vectorDB.searchSimilar(query, limit);
+    return results.map(({ similarity, ...property }) => property);
+  }
+
+  async clearProperties(): Promise<void> {
+    await db.delete(properties);
+    vectorDB.clearProperties();
+    console.log("Cleared all properties from storage and vector database");
+  }
+
+  async createChatMessage(insertMessage: InsertChatMessage): Promise<ChatMessage> {
+    const messageData = {
+      ...insertMessage,
+      propertyIds: insertMessage.propertyIds ?? null
+    };
+    const [message] = await db.insert(chatMessages).values(messageData).returning();
+    return message;
+  }
+
+  async getChatHistory(sessionId: string): Promise<ChatMessage[]> {
+    return await db.select().from(chatMessages)
+      .where(eq(chatMessages.sessionId, sessionId))
+      .orderBy(chatMessages.timestamp);
+  }
+
+  async saveConversation(insertConversation: InsertConversation): Promise<Conversation> {
+    const conversationData = {
+      ...insertConversation,
+      privacyAccepted: insertConversation.privacyAccepted ?? true
+    };
+    const [conversation] = await db.insert(conversations).values(conversationData).returning();
+    return conversation;
+  }
+
+  async updateConversation(sessionId: string, messages: any[]): Promise<void> {
+    await db.update(conversations)
+      .set({ 
+        messages: messages, 
+        updatedAt: sql`now()` 
+      })
+      .where(eq(conversations.sessionId, sessionId));
+  }
+}
+
+// Use MemStorage for now until database is ready
 export const storage = new MemStorage();
