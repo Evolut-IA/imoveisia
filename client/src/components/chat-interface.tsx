@@ -656,7 +656,7 @@ export function ChatInterface() {
         aria-label={`Ver galeria do imóvel ${property.title}`}
       >
       <img 
-        src={property.mainImage} 
+        src={property.mainImage || "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&w=400&h=200"} 
         alt={property.title}
         className="w-full h-24 sm:h-32 object-cover rounded-lg mb-2 sm:mb-3" 
         onError={(e) => {
