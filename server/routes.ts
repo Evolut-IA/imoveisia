@@ -81,6 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
   // WebSocket chat handling
   wss.on('connection', (ws: WebSocket, req) => {
     const sessionId = randomUUID();
@@ -175,7 +176,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
       } catch (error) {
-        console.error('WebSocket message error:', error);
+        console.error(`WebSocket message error for session ${sessionId}:`, error);
+        
         ws.send(JSON.stringify({
           type: 'error',
           message: 'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente.'

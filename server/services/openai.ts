@@ -44,7 +44,7 @@ Responda em JSON com:
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-5",
+      model: "gpt-4o",
       messages: messages as any,
       response_format: { type: "json_object" },
       max_completion_tokens: 1000,
@@ -59,7 +59,13 @@ Responda em JSON com:
     };
   } catch (error) {
     console.error("OpenAI API error:", error);
-    throw new Error("Falha ao gerar resposta do chatbot: " + (error instanceof Error ? error.message : String(error)));
+    
+    // Return a fallback response instead of throwing
+    return {
+      reasoning: "Erro ao processar solicitação",
+      propertyIds: [],
+      responseMessage: "Desculpe, não consegui processar sua solicitação adequadamente. Por favor, tente novamente."
+    };
   }
 }
 
