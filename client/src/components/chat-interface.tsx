@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWebSocket } from "@/hooks/use-websocket";
-import { Home, Bot, Send, MapPin, X, Bed, Bath, Ruler } from "lucide-react";
+import { Home, Send, MapPin, X, Bed, Bath, Ruler } from "lucide-react";
 
 interface Property {
   id: string;
@@ -291,8 +291,8 @@ export function ChatInterface() {
       <div className="h-[400px] sm:h-[500px] overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4" data-testid="chat-messages">
         {/* Welcome Message */}
         <div className="flex items-start space-x-2 sm:space-x-3 message-animation">
-          <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-            <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+          <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+            <img src="/attached_assets/image_1758181030679.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
           </div>
           <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
             <p className="text-foreground text-sm sm:text-base">
@@ -317,8 +317,8 @@ export function ChatInterface() {
               </>
             ) : (
               <>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+                <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+                  <img src="/attached_assets/image_1758181030679.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
                 </div>
                 <div className="space-y-2 sm:space-y-3 flex-1">
                   {/* Só mostra o texto se existir conteúdo */}
@@ -357,8 +357,8 @@ export function ChatInterface() {
         {/* Contextual Messages */}
         {contextualMessages.map((contextMsg, index) => (
           <div key={contextMsg.id} className="flex items-start space-x-2 sm:space-x-3 message-animation">
-            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-              <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+            <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+              <img src="/attached_assets/image_1758181030679.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
             </div>
             <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
               <p className="text-foreground text-sm sm:text-base">
@@ -374,8 +374,8 @@ export function ChatInterface() {
         {/* Typing Indicator */}
         {isTyping && (
           <div className="flex items-start space-x-2 sm:space-x-3 typing-indicator" data-testid="typing-indicator">
-            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-              <Bot className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+            <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+              <img src="/attached_assets/image_1758181030679.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
             </div>
             <div className="bg-muted rounded-lg p-3 sm:p-4">
               <div className="flex space-x-1">
