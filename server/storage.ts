@@ -1,7 +1,10 @@
-import { type User, type InsertUser, type Property, type InsertProperty, type ChatMessage, type InsertChatMessage } from "@shared/schema";
+import { type User, type InsertUser, type Property, type InsertProperty, type ChatMessage, type InsertChatMessage, type Conversation, type InsertConversation } from "@shared/schema";
 import { randomUUID } from "crypto";
 import { vectorDB } from "./services/vectordb";
 import { generateEmbedding, generatePropertyDescription } from "./services/openai";
+import { db } from "./db";
+import { eq, sql } from "drizzle-orm";
+import { users, properties, chatMessages, conversations } from "@shared/schema";
 
 export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
@@ -16,17 +19,22 @@ export interface IStorage {
   
   createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
   getChatHistory(sessionId: string): Promise<ChatMessage[]>;
+  
+  saveConversation(conversation: InsertConversation): Promise<Conversation>;
+  updateConversation(sessionId: string, messages: any[]): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
   private users: Map<string, User>;
   private properties: Map<string, Property>;
   private chatMessages: Map<string, ChatMessage>;
+  private conversations: Map<string, Conversation>;
 
   constructor() {
     this.users = new Map();
     this.properties = new Map();
     this.chatMessages = new Map();
+    this.conversations = new Map();
     
     // Initialize with sample properties
     this.initializeSampleData();
@@ -120,6 +128,30 @@ export class MemStorage implements IStorage {
     return Array.from(this.chatMessages.values())
       .filter(message => message.sessionId === sessionId)
       .sort((a, b) => new Date(a.timestamp!).getTime() - new Date(b.timestamp!).getTime());
+  }
+
+  async saveConversation(insertConversation: InsertConversation): Promise<Conversation> {
+    const id = randomUUID();
+    const conversation: Conversation = {
+      ...insertConversation,
+      id,
+      privacyAccepted: insertConversation.privacyAccepted ?? true,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    this.conversations.set(id, conversation);
+    return conversation;
+  }
+
+  async updateConversation(sessionId: string, messages: any[]): Promise<void> {
+    const conversation = Array.from(this.conversations.values())
+      .find(conv => conv.sessionId === sessionId);
+    
+    if (conversation) {
+      conversation.messages = messages;
+      conversation.updatedAt = new Date().toISOString();
+      this.conversations.set(conversation.id, conversation);
+    }
   }
 
   private async initializeSampleData() {
