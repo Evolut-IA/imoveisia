@@ -9,7 +9,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <h1 className="text-xl sm:text-2xl font-semibold text-foreground" data-testid="app-title">
-                CasaBot
+                Corretor IA
               </h1>
             </div>
           </div>

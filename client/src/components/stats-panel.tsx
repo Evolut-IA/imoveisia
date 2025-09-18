@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
-import { Home, Search, Heart } from "lucide-react";
+import { Home, Search, Heart, TrendingUp } from "lucide-react";
 import { type Property } from "@shared/schema";
 
 export function StatsPanel() {
@@ -87,8 +87,8 @@ export function StatsPanel() {
                       {formatPrice(property.price)}
                     </p>
                   </div>
-                  <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex-shrink-0">
-                    Hot
+                  <span className="text-xs bg-primary text-primary-foreground px-2 py-1 rounded-full flex-shrink-0 flex items-center">
+                    <TrendingUp className="w-3 h-3" />
                   </span>
                 </div>
               ))}

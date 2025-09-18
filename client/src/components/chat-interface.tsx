@@ -85,8 +85,7 @@ export function ChatInterface() {
       <div className="p-4 sm:p-6">
         <div className="flex items-center justify-between">
           <div className="flex-1">
-            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Assistente CasaBot</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground">Encontre sua casa ideal com inteligência artificial</p>
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Assistente Corretor IA</h2>
           </div>
           <div className="flex items-center space-x-2">
             <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
