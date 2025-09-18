@@ -253,7 +253,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           try {
             const conversation = await storage.getConversationBySessionId(sessionId);
             if (conversation && conversation.leadName) {
-              userName = conversation.leadName;
+              // Extract only the first name from the full name
+              userName = conversation.leadName.trim().split(' ')[0];
               
               // Count only user messages that occurred AFTER the lead was captured
               const leadCaptureTime = new Date(conversation.createdAt || 0).getTime();
