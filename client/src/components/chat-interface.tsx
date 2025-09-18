@@ -345,7 +345,7 @@ export function ChatInterface() {
               Olá! 👋 Sou seu assistente imobiliário inteligente. Estou aqui para ajudar você a encontrar a casa dos seus sonhos!
             </p>
             <p className="text-foreground mt-2 text-sm sm:text-base">
-              Me conte um pouco sobre o que você está procurando. Localização, número de quartos, faixa de preço, ou qualquer preferência especial que você tenha. ☺
+              Me conte um pouco sobre o que você está procurando. Localização, número de quartos, faixa de preço, ou qualquer preferência especial que você tenha. ☺️
             </p>
           </div>
         </div>

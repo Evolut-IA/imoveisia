@@ -48,10 +48,6 @@ export function useWebSocket(): UseWebSocketReturn {
         switch (data.type) {
           case 'session_start':
             setSessionId(data.sessionId || null);
-            setMessages(prev => [...prev, {
-              type: 'bot_response',
-              content: data.message || 'Conectado ao CasaBot!'
-            }]);
             break;
             
           case 'typing':
