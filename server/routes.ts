@@ -128,6 +128,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
             content: msg.content
           }));
 
+          // Extract recently recommended property IDs from last 3 assistant messages to avoid duplicates
+          const recentAssistantMessages = chatHistory
+            .filter(msg => msg.role === 'assistant')
+            .slice(-3); // Last 3 assistant messages
+          
+          const recentlyRecommendedIds: string[] = [];
+          for (const msg of recentAssistantMessages) {
+            if (msg.propertyIds && Array.isArray(msg.propertyIds)) {
+              recentlyRecommendedIds.push(...msg.propertyIds);
+            }
+          }
+
           // Get available properties for recommendation
           const allProperties = await storage.getAllProperties();
           const propertiesForAI = allProperties.map(p => ({
@@ -139,11 +151,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             neighborhood: p.neighborhood
           }));
 
-          // Generate AI response
+          // Generate AI response with duplicate prevention
           const aiResponse = await generateChatResponse(
             message.content,
             historyForAI,
-            propertiesForAI
+            propertiesForAI,
+            recentlyRecommendedIds
           );
 
           // Get full property details for recommended properties
