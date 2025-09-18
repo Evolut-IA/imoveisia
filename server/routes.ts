@@ -183,6 +183,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
             recentlyRecommendedIds
           );
 
+          console.log(`[DEBUG] AI Response for session ${sessionId}:`, {
+            reasoning: aiResponse.reasoning,
+            propertyIds: aiResponse.propertyIds,
+            responseMessage: aiResponse.responseMessage
+          });
+
           // Get full property details for recommended properties
           const recommendedProperties: any[] = [];
           for (const propertyId of aiResponse.propertyIds) {
@@ -191,6 +197,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
               recommendedProperties.push(property);
             }
           }
+
+          console.log(`[DEBUG] Recommended properties for session ${sessionId}:`, {
+            count: recommendedProperties.length,
+            properties: recommendedProperties.map(p => ({ id: p.id, title: p.title }))
+          });
 
           // Store assistant message
           await storage.createChatMessage({

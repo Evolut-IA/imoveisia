@@ -120,8 +120,11 @@ export function useWebSocket(): UseWebSocketReturn {
             
           case 'bot_property':
             // Propriedade individual enviada separadamente
+            console.log('[DEBUG] Received bot_property:', data);
+            
             // Só cria nova mensagem se há propriedades para mostrar
             if (data.properties && data.properties.length > 0) {
+              console.log('[DEBUG] Adding property message:', data.properties);
               setMessages(prev => [...prev, {
                 type: 'bot_response',
                 content: undefined, // Sem texto, apenas propriedade
