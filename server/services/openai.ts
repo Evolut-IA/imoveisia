@@ -17,7 +17,9 @@ export async function generateChatResponse(
   userMessage: string, 
   chatHistory: Array<{role: string, content: string}>,
   availableProperties: Array<{id: string, title: string, description: string, price: number, city: string, neighborhood: string}>,
-  recentlyRecommendedIds: string[] = []
+  recentlyRecommendedIds: string[] = [],
+  userName: string | null = null,
+  shouldUseUserName: boolean = false
 ): Promise<PropertyRecommendation> {
   try {
     // Filter out recently recommended properties to avoid duplicates
@@ -32,6 +34,14 @@ REGRAS FUNDAMENTAIS:
 1. **LIMITE DE CARACTERES**: Suas respostas devem ter SEMPRE entre 100 e 500 caracteres. Seja conciso e direto.
 
 2. **ESTRATÉGIA CONVERSACIONAL**: SEMPRE faça 1-2 perguntas antes de mostrar cards de casas. Colete informações do cliente primeiro.
+
+3. **PERSONALIZAÇÃO${shouldUseUserName && userName ? ` - IMPORTANTE` : ``}**:${shouldUseUserName && userName ? `
+   - O usuário se chama ${userName}
+   - VOCÊ DEVE incluir o nome "${userName}" natural e educadamente na sua resposta
+   - Exemplos: "Oi ${userName}! Que bom te ajudar", "${userName}, encontrei algumas opções", "O que acha ${userName}?"
+   - Use o nome de forma natural, não forçada` : `
+   - Se souber o nome do usuário, use ocasionalmente para personalizar
+   - Não use nomes se não tiver certeza`}
 
 **ESTRATÉGIA DE RECOMENDAÇÃO**:
 
