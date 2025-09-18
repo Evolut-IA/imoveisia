@@ -19,20 +19,23 @@ interface Property {
   mainImage: string;
 }
 
-interface ContextualMessage {
-  id: string;
-  propertyTitle: string;
-  content: string;
+
+interface ChatEvent {
+  type: 'message' | 'expanded_property' | 'contextual_message';
   timestamp: number;
+  data: any;
+  id: string;
 }
 
 export function ChatInterface() {
   const { isConnected, sendMessage, messages, isTyping } = useWebSocket();
   const [inputMessage, setInputMessage] = useState("");
   const [expandedProperties, setExpandedProperties] = useState<Property[]>([]);
-  const [contextualMessages, setContextualMessages] = useState<ContextualMessage[]>([]);
+  const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const messageTimestamps = useRef<Map<string, number>>(new Map());
+  const eventCounter = useRef<number>(0);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -40,13 +43,63 @@ export function ChatInterface() {
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages, isTyping, expandedProperties, contextualMessages]);
+  }, [messages, isTyping, chatEvents]);
 
-  // Effect para adicionar mensagem contextual com IA após 1 segundo
+  // Sync messages from WebSocket with chat events using stable timestamps
+  useEffect(() => {
+    setChatEvents(prev => {
+      // Keep all non-message events
+      const nonMessageEvents = prev.filter(event => event.type !== 'message');
+      
+      // Create stable message events
+      const messageEvents: ChatEvent[] = messages.map((message, index) => {
+        const messageId = `message-${index}`;
+        
+        // Use existing timestamp or create a new one
+        if (!messageTimestamps.current.has(messageId)) {
+          messageTimestamps.current.set(messageId, eventCounter.current++);
+        }
+        
+        return {
+          type: 'message',
+          timestamp: messageTimestamps.current.get(messageId)!,
+          data: message,
+          id: messageId
+        };
+      });
+      
+      // Clean up timestamps for messages that no longer exist
+      const currentMessageIds = new Set(messageEvents.map(e => e.id));
+      for (const [id, _] of Array.from(messageTimestamps.current.entries())) {
+        if (id.startsWith('message-') && !currentMessageIds.has(id)) {
+          messageTimestamps.current.delete(id);
+        }
+      }
+      
+      // Combine and sort by timestamp
+      const allEvents = [...nonMessageEvents, ...messageEvents];
+      return allEvents.sort((a, b) => a.timestamp - b.timestamp);
+    });
+  }, [messages]);
+
+  // Effect para adicionar propriedade expandida e mensagem contextual com IA
   useEffect(() => {
     if (expandedProperties.length > 0) {
       const lastProperty = expandedProperties[expandedProperties.length - 1];
-      const messageId = `contextual-${lastProperty.id}-${Date.now()}`;
+      const expandedPropertyId = `expanded-${lastProperty.id}-${Date.now()}`;
+      const contextualMessageId = `contextual-${lastProperty.id}-${Date.now()}`;
+      
+      // Add expanded property to timeline
+      setChatEvents(prev => {
+        const newEvent: ChatEvent = {
+          type: 'expanded_property',
+          timestamp: eventCounter.current++,
+          data: lastProperty,
+          id: expandedPropertyId
+        };
+        const updatedEvents = [...prev, newEvent];
+        return updatedEvents.sort((a, b) => a.timestamp - b.timestamp);
+      });
       
       // Clear previous timeout se existir
       if (timeoutRef.current) {
@@ -63,41 +116,43 @@ export function ChatInterface() {
             }
           });
           
-          if (response.ok) {
-            const result = await response.json();
-            setContextualMessages(prev => [
-              ...prev,
-              {
-                id: messageId,
+          const contextualContent = response.ok 
+            ? (await response.json()).message
+            : `Este ${lastProperty.propertyType.toLowerCase()} em ${lastProperty.neighborhood} desperta seu interesse? Me conte suas impressões! 🏠`;
+            
+          // Add contextual message to timeline
+          setChatEvents(prev => {
+            const newEvent: ChatEvent = {
+              type: 'contextual_message',
+              timestamp: eventCounter.current++,
+              data: {
+                id: contextualMessageId,
                 propertyTitle: lastProperty.title,
-                content: result.message,
-                timestamp: Date.now()
-              }
-            ]);
-          } else {
-            // Fallback em caso de erro da API
-            setContextualMessages(prev => [
-              ...prev,
-              {
-                id: messageId,
-                propertyTitle: lastProperty.title,
-                content: `Este ${lastProperty.propertyType.toLowerCase()} em ${lastProperty.neighborhood} desperta seu interesse? Me conte suas impressões! 🏠`,
-                timestamp: Date.now()
-              }
-            ]);
-          }
+                content: contextualContent
+              },
+              id: contextualMessageId
+            };
+            const updatedEvents = [...prev, newEvent];
+            return updatedEvents.sort((a, b) => a.timestamp - b.timestamp);
+          });
+          
         } catch (error) {
           console.error('Erro ao gerar mensagem contextual:', error);
-          // Fallback em caso de erro
-          setContextualMessages(prev => [
-            ...prev,
-            {
-              id: messageId,
-              propertyTitle: lastProperty.title,
-              content: `Este ${lastProperty.propertyType.toLowerCase()} em ${lastProperty.neighborhood} desperta seu interesse? Me conte suas impressões! 🏠`,
-              timestamp: Date.now()
-            }
-          ]);
+          // Add fallback contextual message to timeline
+          setChatEvents(prev => {
+            const newEvent: ChatEvent = {
+              type: 'contextual_message',
+              timestamp: eventCounter.current++,
+              data: {
+                id: contextualMessageId,
+                propertyTitle: lastProperty.title,
+                content: `Este ${lastProperty.propertyType.toLowerCase()} em ${lastProperty.neighborhood} desperta seu interesse? Me conte suas impressões! 🏠`
+              },
+              id: contextualMessageId
+            };
+            const updatedEvents = [...prev, newEvent];
+            return updatedEvents.sort((a, b) => a.timestamp - b.timestamp);
+          });
         }
       }, 1000);
     }
@@ -260,6 +315,78 @@ export function ChatInterface() {
     );
   };
 
+  const renderChatEvent = (event: ChatEvent) => {
+    switch (event.type) {
+      case 'message':
+        const message = event.data;
+        return (
+          <div key={event.id} className={`flex items-start space-x-2 sm:space-x-3 message-animation ${
+            message.type === 'user_message' ? 'justify-end' : ''
+          }`} data-testid={`message-${event.id}`}>
+            {message.type === 'user_message' ? (
+              <>
+                <div className="bg-primary rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
+                  <p className="text-primary-foreground text-sm sm:text-base">{message.content}</p>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+                  <img src="/Robo.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
+                </div>
+                <div className="space-y-2 sm:space-y-3 flex-1">
+                  {message.content && (
+                    <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
+                      <p className="text-foreground text-sm sm:text-base">{message.content}</p>
+                    </div>
+                  )}
+                  
+                  {message.properties && message.properties.length > 0 && (
+                    <div className="space-y-2 sm:space-y-3">
+                      {message.properties.map((property: Property) => (
+                        <PropertyCard key={property.id} property={property} />
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
+          </div>
+        );
+
+      case 'expanded_property':
+        const property = event.data;
+        return (
+          <div key={event.id} className="flex items-start space-x-2 sm:space-x-3 message-animation">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
+              <Home className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
+            </div>
+            <div className="flex-1 max-w-full">
+              <PropertyDetails property={property} />
+            </div>
+          </div>
+        );
+
+      case 'contextual_message':
+        const contextMsg = event.data;
+        return (
+          <div key={event.id} className="flex items-start space-x-2 sm:space-x-3 message-animation">
+            <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
+              <img src="/Robo.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
+            </div>
+            <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
+              <p className="text-foreground text-sm sm:text-base" data-testid={`contextual-message-${contextMsg.id}`}>
+                {contextMsg.content}
+              </p>
+            </div>
+          </div>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   const PropertyCard = ({ property }: { property: Property }) => {
     const handleCardClick = (e: React.MouseEvent<HTMLDivElement>) => {
       // Adicionar propriedade expandida ao chat
@@ -342,69 +469,8 @@ export function ChatInterface() {
           </div>
         </div>
 
-        {/* Chat Messages */}
-        {messages.map((message, index) => (
-          <div key={index} className={`flex items-start space-x-2 sm:space-x-3 message-animation ${
-            message.type === 'user_message' ? 'justify-end' : ''
-          }`} data-testid={`message-${index}`}>
-            {message.type === 'user_message' ? (
-              <>
-                <div className="bg-primary rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
-                  <p className="text-primary-foreground text-sm sm:text-base">{message.content}</p>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
-                  <img src="/Robo.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
-                </div>
-                <div className="space-y-2 sm:space-y-3 flex-1">
-                  {/* Só mostra o texto se existir conteúdo */}
-                  {message.content && (
-                    <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
-                      <p className="text-foreground text-sm sm:text-base">{message.content}</p>
-                    </div>
-                  )}
-                  
-                  {/* Property Cards */}
-                  {message.properties && message.properties.length > 0 && (
-                    <div className="space-y-2 sm:space-y-3">
-                      {message.properties.map((property: Property) => (
-                        <PropertyCard key={property.id} property={property} />
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
-        ))}
-
-        {/* Expanded Properties */}
-        {expandedProperties.map((property, index) => (
-          <div key={`expanded-${property.id}-${index}`} className="flex items-start space-x-2 sm:space-x-3 message-animation">
-            <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
-              <Home className="w-3 h-3 sm:w-4 sm:h-4 text-primary-foreground" />
-            </div>
-            <div className="flex-1 max-w-full">
-              <PropertyDetails property={property} />
-            </div>
-          </div>
-        ))}
-
-        {/* Contextual Messages */}
-        {contextualMessages.map((contextMsg, index) => (
-          <div key={contextMsg.id} className="flex items-start space-x-2 sm:space-x-3 message-animation">
-            <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
-              <img src="/Robo.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
-            </div>
-            <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
-              <p className="text-foreground text-sm sm:text-base" data-testid={`contextual-message-${contextMsg.id}`}>
-                {contextMsg.content}
-              </p>
-            </div>
-          </div>
-        ))}
+        {/* Unified Chat Timeline */}
+        {chatEvents.map((event) => renderChatEvent(event))}
 
         {/* Typing Indicator */}
         {isTyping && (
