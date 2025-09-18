@@ -34,7 +34,7 @@ interface LeadForm {
 }
 
 export function ChatInterface() {
-  const { isConnected, sendMessage, messages, isTyping } = useWebSocket();
+  const { isConnected, sendMessage, messages, isTyping, sessionId } = useWebSocket();
   const [inputMessage, setInputMessage] = useState("");
   const [expandedProperties, setExpandedProperties] = useState<Property[]>([]);
   const [chatEvents, setChatEvents] = useState<ChatEvent[]>([]);
@@ -265,11 +265,74 @@ export function ChatInterface() {
     setInputMessage("");
   };
 
-  const handleLeadFormSubmit = () => {
+  // Função para atualizar a conversa no backend
+  const updateConversationMessages = async (currentSessionId: string, currentChatEvents: ChatEvent[]) => {
+    if (!hasCapturedLead || !currentSessionId) return;
+    
+    try {
+      const messages = currentChatEvents.map(event => ({
+        type: event.type,
+        timestamp: event.timestamp,
+        content: JSON.stringify(event.data)
+      }));
+
+      await fetch(`/api/conversations/${currentSessionId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ messages }),
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar conversa:', error);
+      // Não bloqueia o fluxo se der erro
+    }
+  };
+
+  // Atualizar conversa automaticamente quando novos eventos são adicionados
+  useEffect(() => {
+    if (hasCapturedLead && sessionId && chatEvents.length > 0) {
+      updateConversationMessages(sessionId, chatEvents);
+    }
+  }, [chatEvents, hasCapturedLead, sessionId]);
+
+  const handleLeadFormSubmit = async () => {
     if (!canSubmitLeadForm()) return;
     
-    // Processar dados do lead aqui (salvar no backend se necessário)
-    console.log('Lead capturado:', leadForm);
+    try {
+      // Preparar dados da conversa para salvar no backend
+      const conversationData = {
+        sessionId: sessionId || '',
+        leadName: leadForm.name,
+        leadWhatsApp: leadForm.whatsapp,
+        privacyAccepted: leadForm.privacyAccepted,
+        messages: chatEvents.map(event => ({
+          type: event.type,
+          timestamp: event.timestamp,
+          content: JSON.stringify(event.data)
+        }))
+      };
+
+      // Salvar conversa no backend
+      const response = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(conversationData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erro ao salvar conversa: ${response.statusText}`);
+      }
+
+      const savedConversation = await response.json();
+      console.log('Conversa salva com sucesso:', savedConversation);
+      
+    } catch (error) {
+      console.error('Erro ao salvar dados do lead:', error);
+      // Não bloqueia o fluxo se der erro ao salvar
+    }
     
     // Marcar como capturado para não mostrar novamente
     setHasCapturedLead(true);
