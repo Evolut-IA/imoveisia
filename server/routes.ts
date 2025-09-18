@@ -3,13 +3,14 @@ import { createServer, type Server } from "http";
 import { WebSocketServer, WebSocket } from "ws";
 import { storage } from "./storage";
 import { insertPropertySchema, insertChatMessageSchema } from "@shared/schema";
-import { generateChatResponse } from "./services/openai";
+import { generateChatResponse, splitMessageIntoChunks } from "./services/openai";
 import { randomUUID } from "crypto";
 
 interface ChatSession {
   id: string;
   socket: WebSocket;
   lastActivity: Date;
+  isTyping: boolean;
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -88,7 +89,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const session: ChatSession = {
       id: sessionId,
       socket: ws,
-      lastActivity: new Date()
+      lastActivity: new Date(),
+      isTyping: false
     };
     
     chatSessions.set(sessionId, session);
@@ -107,6 +109,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         session.lastActivity = new Date();
 
         if (message.type === 'user_message') {
+          // Verificar se já está digitando
+          if (session.isTyping) {
+            return; // Ignora mensagens enquanto está processando
+          }
+
+          session.isTyping = true;
+
           // Store user message
           await storage.createChatMessage({
             sessionId: sessionId,
@@ -160,7 +169,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           );
 
           // Get full property details for recommended properties
-          const recommendedProperties = [];
+          const recommendedProperties: any[] = [];
           for (const propertyId of aiResponse.propertyIds) {
             const property = await storage.getProperty(propertyId);
             if (property) {
@@ -176,13 +185,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
             propertyIds: aiResponse.propertyIds
           });
 
-          // Send response to client
-          ws.send(JSON.stringify({
-            type: 'bot_response',
-            content: aiResponse.responseMessage,
-            properties: recommendedProperties,
-            reasoning: aiResponse.reasoning
-          }));
+          // Split message into chunks and send with delays
+          const messageChunks = splitMessageIntoChunks(aiResponse.responseMessage);
+          
+          let accumulatedContent = '';
+          
+          for (let i = 0; i < messageChunks.length; i++) {
+            const chunk = messageChunks[i];
+            accumulatedContent += chunk.content;
+            
+            setTimeout(() => {
+              if (ws.readyState === WebSocket.OPEN) {
+                if (chunk.isLast) {
+                  // Última mensagem: envia tudo junto com propriedades
+                  ws.send(JSON.stringify({
+                    type: 'bot_response',
+                    content: accumulatedContent,
+                    properties: recommendedProperties,
+                    reasoning: aiResponse.reasoning,
+                    isChunked: true,
+                    isLastChunk: true
+                  }));
+                  
+                  // Para de "digitar"
+                  ws.send(JSON.stringify({
+                    type: 'typing',
+                    isTyping: false
+                  }));
+                  
+                  session.isTyping = false;
+                } else {
+                  // Chunk intermediário: apenas texto
+                  ws.send(JSON.stringify({
+                    type: 'bot_response_chunk',
+                    content: chunk.content,
+                    isChunked: true,
+                    isLastChunk: false
+                  }));
+                }
+              }
+            }, i === 0 ? 0 : messageChunks.slice(0, i).reduce((sum, c) => sum + c.delay, 0));
+          }
 
         } else if (message.type === 'ping') {
           ws.send(JSON.stringify({ type: 'pong' }));

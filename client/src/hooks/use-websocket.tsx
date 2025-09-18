@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 
 export interface ChatMessage {
-  type: 'user_message' | 'bot_response' | 'typing' | 'error' | 'session_start';
+  type: 'user_message' | 'bot_response' | 'bot_response_chunk' | 'typing' | 'error' | 'session_start';
   content?: string;
   properties?: any[];
   reasoning?: string;
   isTyping?: boolean;
   sessionId?: string;
   message?: string;
+  isChunked?: boolean;
+  isLastChunk?: boolean;
 }
 
 export interface UseWebSocketReturn {
@@ -25,6 +27,7 @@ export function useWebSocket(): UseWebSocketReturn {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isTyping, setIsTyping] = useState(false);
   const reconnectTimeoutRef = useRef<NodeJS.Timeout>();
+  const currentBotMessage = useRef<string>('');
 
   const connect = useCallback(() => {
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -52,11 +55,67 @@ export function useWebSocket(): UseWebSocketReturn {
             
           case 'typing':
             setIsTyping(data.isTyping || false);
+            if (data.isTyping) {
+              currentBotMessage.current = '';
+            }
+            break;
+            
+          case 'bot_response_chunk':
+            // Acumula chunks da mensagem
+            currentBotMessage.current += data.content || '';
+            setMessages(prev => {
+              const newMessages = [...prev];
+              const lastMessageIndex = newMessages.length - 1;
+              
+              // Se a última mensagem é um chunk em progresso, atualiza
+              if (lastMessageIndex >= 0 && newMessages[lastMessageIndex].type === 'bot_response' && newMessages[lastMessageIndex].isChunked) {
+                newMessages[lastMessageIndex] = {
+                  ...newMessages[lastMessageIndex],
+                  content: currentBotMessage.current
+                };
+              } else {
+                // Cria nova mensagem chunk
+                newMessages.push({
+                  type: 'bot_response',
+                  content: currentBotMessage.current,
+                  isChunked: true,
+                  isLastChunk: false
+                });
+              }
+              
+              return newMessages;
+            });
             break;
             
           case 'bot_response':
             setIsTyping(false);
-            setMessages(prev => [...prev, data]);
+            if (data.isChunked && data.isLastChunk) {
+              // Última mensagem chunked - substitui a mensagem anterior com todas as propriedades
+              setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMessageIndex = newMessages.length - 1;
+                
+                if (lastMessageIndex >= 0 && newMessages[lastMessageIndex].isChunked) {
+                  newMessages[lastMessageIndex] = {
+                    ...data,
+                    content: data.content || currentBotMessage.current,
+                    isChunked: false
+                  };
+                } else {
+                  newMessages.push({
+                    ...data,
+                    content: data.content || currentBotMessage.current,
+                    isChunked: false
+                  });
+                }
+                
+                return newMessages;
+              });
+            } else {
+              // Mensagem regular não chunked
+              setMessages(prev => [...prev, data]);
+            }
+            currentBotMessage.current = '';
             break;
             
           case 'error':
@@ -65,6 +124,7 @@ export function useWebSocket(): UseWebSocketReturn {
               type: 'bot_response',
               content: data.message || 'Ocorreu um erro. Tente novamente.'
             }]);
+            currentBotMessage.current = '';
             break;
             
           default:

@@ -35,7 +35,7 @@ export function ChatInterface() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!inputMessage.trim() || !isConnected) return;
+    if (!inputMessage.trim() || !isConnected || isTyping) return;
 
     sendMessage(inputMessage.trim());
     setInputMessage("");
@@ -181,16 +181,16 @@ export function ChatInterface() {
             <Input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="Digite sua mensagem..."
+              placeholder={isTyping ? "Aguarde o bot responder..." : "Digite sua mensagem..."}
               className="w-full bg-input border border-border rounded-lg px-4 py-3 text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
-              disabled={!isConnected}
+              disabled={!isConnected || isTyping}
               data-testid="message-input"
             />
           </div>
           <Button 
             type="submit" 
-            className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors"
-            disabled={!isConnected || !inputMessage.trim()}
+            className="bg-primary text-primary-foreground px-6 py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            disabled={!isConnected || !inputMessage.trim() || isTyping}
             data-testid="send-button"
           >
             <Send className="w-4 h-4" />

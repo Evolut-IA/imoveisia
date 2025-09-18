@@ -25,37 +25,38 @@ export async function generateChatResponse(
 
     const systemPrompt = `Você é o CasaBot, um assistente imobiliário inteligente e humanizado que ajuda pessoas a encontrar casas ideais. 
 
-REGRA FUNDAMENTAL - DETERMINE A INTENÇÃO PRIMEIRO:
+REGRAS FUNDAMENTAIS:
+
+1. **LIMITE DE CARACTERES**: Suas respostas devem ter SEMPRE entre 100 e 500 caracteres. Seja conciso e direto.
+
+2. **DETERMINE A INTENÇÃO PRIMEIRO**:
 ANTES de recomendar propriedades, você DEVE determinar se a mensagem do usuário é:
 
-1. **BUSCA POR PROPRIEDADES** - Mensagens que indicam interesse em encontrar imóveis:
+**BUSCA POR PROPRIEDADES** - Mensagens que indicam interesse em encontrar imóveis:
    - Perguntas sobre casas, apartamentos, propriedades
    - Critérios específicos (quartos, localização, preço, etc.)
    - Interesse em comprar, alugar, ou encontrar imóveis
    - Exemplos: "Preciso de um apartamento", "Casa com 3 quartos", "Imóveis baratos"
 
-2. **CONVERSAÇÃO SOCIAL** - Mensagens que NÃO são sobre busca por propriedades:
+**CONVERSAÇÃO SOCIAL** - Mensagens que NÃO são sobre busca por propriedades:
    - Saudações: "Olá", "Oi", "Bom dia"
    - Agradecimentos: "Obrigado", "Valeu", "Muito obrigada"
    - Despedidas: "Tchau", "Até logo", "Obrigado, já vou"
    - Conversação geral que não menciona propriedades
-   - Feedback sobre o atendimento
 
 INSTRUÇÕES BASEADAS NA INTENÇÃO:
 
 **PARA BUSCA POR PROPRIEDADES:**
-- Analise as preferências do usuário (localização, preço, quartos, etc.)
-- Recomende até 3 propriedades que melhor atendem aos critérios
-- Explique brevemente por que cada propriedade foi escolhida
-- Se não houver propriedades adequadas, seja honesto e ofereça alternativas
-- Faça perguntas para entender melhor as necessidades se necessário
+- Analise as preferências (localização, preço, quartos, etc.)
+- Recomende até 3 propriedades relevantes
+- Seja breve na explicação (máximo 500 caracteres)
 - EVITE recomendar propriedades já mostradas recentemente
 
 **PARA CONVERSAÇÃO SOCIAL:**
-- Responda de forma amigável e conversacional
+- Responda de forma amigável e concisa
 - USE SEMPRE propertyIds: [] (array vazio - NUNCA recomende propriedades)
-- Mantenha o foco na conversa, não force busca por propriedades
-- Use emojis ocasionalmente para ser mais humano
+- Use emojis ocasionalmente
+- Mantenha entre 100-300 caracteres
 
 PROPRIEDADES DISPONÍVEIS${recentlyRecommendedIds.length > 0 ? ' (excluindo propriedades já recomendadas recentemente)' : ''}:
 ${filteredProperties.map(p => `ID: ${p.id} | ${p.title} | ${p.city}, ${p.neighborhood} | R$ ${p.price.toLocaleString('pt-BR')} | ${p.description}`).join('\n')}
@@ -128,4 +129,91 @@ export async function generatePropertyDescription(property: any): Promise<string
   `.trim();
 
   return propertyText;
+}
+
+export interface MessageChunk {
+  content: string;
+  isLast: boolean;
+  delay: number;
+}
+
+export function splitMessageIntoChunks(message: string): MessageChunk[] {
+  // Se a mensagem for muito curta, retorna como um chunk único
+  if (message.length <= 150) {
+    return [{
+      content: message,
+      isLast: true,
+      delay: Math.floor(Math.random() * 3000) + 1000 // 1-4 segundos
+    }];
+  }
+
+  const chunks: MessageChunk[] = [];
+  const sentences = message.split(/[.!?]\s+/);
+  let currentChunk = '';
+  
+  for (let i = 0; i < sentences.length; i++) {
+    const sentence = sentences[i] + (i < sentences.length - 1 ? '. ' : '');
+    
+    // Se adicionar esta frase não ultrapassar 200 caracteres, adiciona ao chunk atual
+    if (currentChunk.length + sentence.length <= 200) {
+      currentChunk += sentence;
+    } else {
+      // Se o chunk atual não estiver vazio, salva ele
+      if (currentChunk.trim()) {
+        chunks.push({
+          content: currentChunk.trim(),
+          isLast: false,
+          delay: Math.floor(Math.random() * 3000) + 1000 // 1-4 segundos
+        });
+      }
+      
+      // Inicia um novo chunk com a frase atual
+      currentChunk = sentence;
+    }
+  }
+  
+  // Adiciona o último chunk se houver conteúdo
+  if (currentChunk.trim()) {
+    chunks.push({
+      content: currentChunk.trim(),
+      isLast: true,
+      delay: Math.floor(Math.random() * 3000) + 1000 // 1-4 segundos
+    });
+  }
+  
+  // Se não criou chunks (mensagem muito longa sem pontuação), força divisão por caracteres
+  if (chunks.length === 0) {
+    const words = message.split(' ');
+    let currentChunk = '';
+    
+    for (const word of words) {
+      if (currentChunk.length + word.length + 1 <= 200) {
+        currentChunk += (currentChunk ? ' ' : '') + word;
+      } else {
+        if (currentChunk.trim()) {
+          chunks.push({
+            content: currentChunk.trim(),
+            isLast: false,
+            delay: Math.floor(Math.random() * 3000) + 1000
+          });
+        }
+        currentChunk = word;
+      }
+    }
+    
+    if (currentChunk.trim()) {
+      chunks.push({
+        content: currentChunk.trim(),
+        isLast: true,
+        delay: Math.floor(Math.random() * 3000) + 1000
+      });
+    }
+  }
+  
+  // Marca o último chunk
+  if (chunks.length > 0) {
+    chunks[chunks.length - 1].isLast = true;
+  }
+  
+  return chunks;
 }
