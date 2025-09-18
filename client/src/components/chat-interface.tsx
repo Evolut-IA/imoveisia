@@ -401,7 +401,7 @@ export function ChatInterface() {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               placeholder={isTyping ? "Aguarde o bot responder..." : "Digite sua mensagem..."}
-              className="w-full bg-muted/30 border-muted rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-all"
+              className="w-full !bg-input !border-border !text-foreground placeholder:!text-muted-foreground rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-all"
               disabled={!isConnected || isTyping}
               data-testid="message-input"
             />
