@@ -80,19 +80,16 @@ export function ChatInterface() {
   );
 
   return (
-    <div className="lg:col-span-2 bg-card rounded-xl border border-border shadow-lg">
+    <div className="lg:col-span-2 bg-card rounded-lg">
       {/* Header */}
-      <div className="p-4 sm:p-6 border-b border-border">
-        <div className="flex items-center space-x-2 sm:space-x-3">
-          <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary rounded-full flex items-center justify-center">
-            <Bot className="w-4 h-4 sm:w-6 sm:h-6 text-primary-foreground" />
+      <div className="p-4 sm:p-6">
+        <div className="flex items-center justify-between">
+          <div className="flex-1">
+            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground">Assistente CasaBot</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground">Encontre sua casa ideal com inteligência artificial</p>
           </div>
-          <div className="flex-1 min-w-0">
-            <h2 className="text-lg sm:text-xl font-semibold text-card-foreground truncate">Assistente CasaBot</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">Encontre sua casa ideal com inteligência artificial</p>
-          </div>
-          <div className="flex items-center space-x-1 sm:space-x-2">
-            <div className={`w-2 h-2 sm:w-3 sm:h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+          <div className="flex items-center space-x-2">
+            <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
             <span className="text-xs sm:text-sm text-muted-foreground" data-testid="connection-status">
               {isConnected ? 'Online' : 'Offline'}
             </span>
@@ -101,7 +98,7 @@ export function ChatInterface() {
       </div>
 
       {/* Messages */}
-      <div className="h-[400px] sm:h-[500px] overflow-y-auto chat-scroll p-3 sm:p-6 space-y-3 sm:space-y-4" data-testid="chat-messages">
+      <div className="h-[400px] sm:h-[500px] overflow-y-auto p-3 sm:p-6 space-y-3 sm:space-y-4" data-testid="chat-messages">
         {/* Welcome Message */}
         <div className="flex items-start space-x-2 sm:space-x-3 message-animation">
           <div className="w-6 h-6 sm:w-8 sm:h-8 bg-primary rounded-full flex items-center justify-center flex-shrink-0">
@@ -178,21 +175,21 @@ export function ChatInterface() {
       </div>
 
       {/* Input */}
-      <div className="p-3 sm:p-6 border-t border-border">
+      <div className="p-3 sm:p-6">
         <form onSubmit={handleSubmit} className="flex space-x-2 sm:space-x-3" data-testid="chat-form">
           <div className="flex-1">
             <Input
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               placeholder={isTyping ? "Aguarde o bot responder..." : "Digite sua mensagem..."}
-              className="w-full bg-input border border-border rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+              className="w-full bg-muted/30 border-muted rounded-lg px-3 sm:px-4 py-2 sm:py-3 text-sm sm:text-base text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50 focus:border-primary/50 transition-all"
               disabled={!isConnected || isTyping}
               data-testid="message-input"
             />
           </div>
           <Button 
             type="submit" 
-            className="bg-primary text-primary-foreground px-3 sm:px-6 py-2 sm:py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            className="bg-primary text-primary-foreground px-3 sm:px-4 py-2 sm:py-3 rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             disabled={!isConnected || !inputMessage.trim() || isTyping}
             data-testid="send-button"
           >
