@@ -167,6 +167,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     chatSessions.set(sessionId, session);
     console.log(`New chat session created: ${sessionId}`);
+    console.log(`WebSocket connection established from: ${req.socket.remoteAddress}`);
 
     // Send session start
     ws.send(JSON.stringify({
@@ -175,16 +176,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }));
 
     ws.on('message', async (data) => {
+      console.log(`[DEBUG] Received WebSocket message for session ${sessionId}:`, data.toString());
       try {
         const message = JSON.parse(data.toString());
+        console.log(`[DEBUG] Parsed message:`, message);
         session.lastActivity = new Date();
 
         if (message.type === 'user_message') {
+          console.log(`[DEBUG] Processing user_message for session ${sessionId}`);
+          
           // Verificar se já está digitando
           if (session.isTyping) {
+            console.log(`[DEBUG] Session ${sessionId} is already typing, ignoring message`);
             return; // Ignora mensagens enquanto está processando
           }
 
+          console.log(`[DEBUG] Setting isTyping=true for session ${sessionId}`);
           session.isTyping = true;
 
           // Store user message
@@ -292,6 +299,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Generate AI response with duplicate prevention and personalization
+          console.log(`[DEBUG] About to call generateChatResponse for session ${sessionId}`);
+          console.log(`[DEBUG] Message content: "${message.content}"`);
+          console.log(`[DEBUG] Chat history length: ${historyForAI.length}`);
+          console.log(`[DEBUG] Available properties: ${propertiesForAI.length}`);
+          
           const aiResponse = await generateChatResponse(
             message.content,
             historyForAI,
@@ -300,6 +312,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             userName,
             shouldUseUserName
           );
+          
+          console.log(`[DEBUG] AI Response received for session ${sessionId}`);
 
           console.log(`[DEBUG] AI Response for session ${sessionId}:`, {
             reasoning: aiResponse.reasoning,
@@ -420,7 +434,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
 
       } catch (error) {
-        console.error(`WebSocket message error for session ${sessionId}:`, error);
+        console.error(`[ERROR] WebSocket message error for session ${sessionId}:`, error);
+        console.error(`[ERROR] Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
+        
+        session.isTyping = false; // Reset typing state
         
         ws.send(JSON.stringify({
           type: 'error',
