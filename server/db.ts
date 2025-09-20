@@ -3,11 +3,11 @@ import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
 // Use the new PostgreSQL database
-const databaseUrl = process.env.BANCODEDADOS;
+const databaseUrl = process.env.DATABASE_URL || process.env.BANCODEDADOS;
 
 if (!databaseUrl) {
   throw new Error(
-    "BANCODEDADOS deve estar configurada. Verifique as variáveis de ambiente.",
+    "DATABASE_URL deve estar configurada. Verifique as variáveis de ambiente.",
   );
 }
 

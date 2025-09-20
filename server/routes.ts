@@ -195,12 +195,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           session.isTyping = true;
 
           // Store user message
+          console.log(`[DEBUG] About to store user message for session ${sessionId}`);
           await storage.createChatMessage({
             sessionId: sessionId,
             role: 'user',
             content: message.content,
             propertyIds: []
           });
+          console.log(`[DEBUG] User message stored successfully for session ${sessionId}`);
 
           // Send typing indicator
           ws.send(JSON.stringify({
@@ -209,7 +211,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }));
 
           // Get chat history for context - últimas 5 trocas (10 mensagens)
+          console.log(`[DEBUG] About to get chat history for session ${sessionId}`);
           const chatHistory = await storage.getChatHistory(sessionId);
+          console.log(`[DEBUG] Chat history retrieved, length: ${chatHistory.length}`);
           
           // Pega as últimas 5 trocas (user + assistant pairs)
           const lastExchanges = [];
@@ -243,7 +247,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           }
 
           // Get available properties for recommendation
+          console.log(`[DEBUG] About to get all properties for session ${sessionId}`);
           const allProperties = await storage.getAllProperties();
+          console.log(`[DEBUG] Properties retrieved, count: ${allProperties.length}`);
           const propertiesForAI = allProperties.map(p => ({
             id: p.id,
             title: p.title,

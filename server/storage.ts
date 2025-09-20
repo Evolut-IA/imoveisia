@@ -1145,12 +1145,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createChatMessage(insertMessage: InsertChatMessage): Promise<ChatMessage> {
-    const messageData = {
-      ...insertMessage,
-      propertyIds: insertMessage.propertyIds ?? null
-    };
-    const [message] = await db.insert(chatMessages).values(messageData).returning();
-    return message;
+    try {
+      console.log(`[DEBUG] Attempting to insert chat message to database:`, insertMessage);
+      const messageData = {
+        ...insertMessage,
+        propertyIds: insertMessage.propertyIds ?? null
+      };
+      console.log(`[DEBUG] Prepared message data:`, messageData);
+      
+      const [message] = await db.insert(chatMessages).values(messageData).returning();
+      console.log(`[DEBUG] Chat message inserted successfully:`, message);
+      return message;
+    } catch (error) {
+      console.error(`[ERROR] Failed to insert chat message:`, error);
+      console.error(`[ERROR] Message data:`, insertMessage);
+      console.error(`[ERROR] Error details:`, error instanceof Error ? error.message : 'Unknown error');
+      console.error(`[ERROR] Stack trace:`, error instanceof Error ? error.stack : 'No stack trace');
+      throw error;
+    }
   }
 
   async getChatHistory(sessionId: string): Promise<ChatMessage[]> {
