@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWebSocket } from "@/hooks/use-websocket";
-import { Home, Send, MapPin, X, Bed, Bath, Ruler } from "lucide-react";
+import { Home, Send, MapPin, X, Bed, Bath, Ruler, Phone } from "lucide-react";
 // import roboImage from "../assets/robo.png";
 
 interface Property {
@@ -364,6 +364,103 @@ export function ChatInterface() {
     }).format(numPrice);
   };
 
+  // Função para detectar números de telefone brasileiros
+  const detectPhoneNumbers = (text: string): string[] => {
+    const phoneRegex = /(?:\+?55\s*)?\(?\d{2}\)?\s*\d{4,5}[-\s]?\d{4}/g;
+    const matches = text.match(phoneRegex) || [];
+    
+    // Filtrar números válidos e remover duplicados
+    const validNumbers = new Set<string>();
+    
+    matches.forEach(match => {
+      const digitsOnly = match.replace(/\D/g, '');
+      const brazilianNumber = digitsOnly.startsWith('55') ? digitsOnly.slice(2) : digitsOnly;
+      
+      // Validação mais robusta: 10-11 dígitos e DDD válido (códigos de área brasileiros)
+      const validDDDs = ['11', '12', '13', '14', '15', '16', '17', '18', '19', // São Paulo
+                        '21', '22', '24', // Rio de Janeiro
+                        '27', '28', // Espírito Santo
+                        '31', '32', '33', '34', '35', '37', '38', // Minas Gerais
+                        '41', '42', '43', '44', '45', '46', // Paraná
+                        '47', '48', '49', // Santa Catarina
+                        '51', '53', '54', '55', // Rio Grande do Sul
+                        '61', // Distrito Federal
+                        '62', '64', // Goiás
+                        '63', // Tocantins
+                        '65', '66', // Mato Grosso
+                        '67', // Mato Grosso do Sul
+                        '68', // Acre
+                        '69', // Rondônia
+                        '71', '73', '74', '75', '77', // Bahia
+                        '79', // Sergipe
+                        '81', '87', // Pernambuco
+                        '82', // Alagoas
+                        '83', // Paraíba
+                        '84', // Rio Grande do Norte
+                        '85', '88', // Ceará
+                        '86', '89', // Piauí
+                        '91', '93', '94', // Pará
+                        '92', '97', // Amazonas
+                        '95', // Roraima
+                        '96', // Amapá
+                        '98', '99']; // Maranhão
+      
+      if (brazilianNumber.length >= 10 && brazilianNumber.length <= 11) {
+        const ddd = brazilianNumber.substring(0, 2);
+        
+        // Proteger contra falsos positivos: verificar se é um DDD válido
+        if (validDDDs.includes(ddd)) {
+          // Evitar números obviamente inválidos (todos os dígitos iguais, sequências simples)
+          const remainingDigits = brazilianNumber.substring(2);
+          const uniqueDigits = new Set(remainingDigits.split('')).size;
+          
+          // Se tem mais de 2 dígitos únicos, provavelmente é um número real
+          if (uniqueDigits > 2) {
+            validNumbers.add(match.trim());
+          }
+        }
+      }
+    });
+    
+    return Array.from(validNumbers);
+  };
+
+  // Função para formatar número para WhatsApp Web
+  const formatPhoneForWhatsApp = (phone: string): string => {
+    const digitsOnly = phone.replace(/\D/g, '');
+    let brazilianNumber = digitsOnly.startsWith('55') ? digitsOnly.slice(2) : digitsOnly;
+    
+    // Validar se tem 10 ou 11 dígitos (números brasileiros válidos)
+    if (brazilianNumber.length < 10 || brazilianNumber.length > 11) return '';
+    
+    // Retornar número formatado sem alterações automáticas
+    return `55${brazilianNumber}`;
+  };
+
+  // Função para abrir WhatsApp Web
+  const openWhatsApp = (phone: string) => {
+    const formattedPhone = formatPhoneForWhatsApp(phone);
+    if (formattedPhone) {
+      const whatsappUrl = `https://wa.me/${formattedPhone}`;
+      window.open(whatsappUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  // Componente do botão WhatsApp
+  const WhatsAppButton = ({ phone }: { phone: string }) => {
+    return (
+      <Button
+        onClick={() => openWhatsApp(phone)}
+        className="bg-green-500 hover:bg-green-600 text-white text-sm px-3 py-2 mt-2 flex items-center gap-2"
+        size="sm"
+        data-testid={`whatsapp-button-${phone.replace(/\D/g, '')}`}
+      >
+        <Phone className="w-4 h-4" />
+        📱 Falar no WhatsApp
+      </Button>
+    );
+  };
+
   const getUnsplashImages = (propertyType: string) => {
     const baseUrl = "https://images.unsplash.com/";
     const params = "?ixlib=rb-4.0.3&w=400&h=400&fit=crop";
@@ -518,8 +615,14 @@ export function ChatInterface() {
                 </div>
                 <div className="space-y-2 sm:space-y-3 flex-1">
                   {message.content && (
-                    <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
-                      <p className="text-foreground text-sm sm:text-base">{message.content}</p>
+                    <div className="space-y-2">
+                      <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
+                        <p className="text-foreground text-sm sm:text-base">{message.content}</p>
+                      </div>
+                      {/* Detectar e mostrar botões WhatsApp */}
+                      {detectPhoneNumbers(message.content).map((phone, index) => (
+                        <WhatsAppButton key={`${phone}-${index}`} phone={phone} />
+                      ))}
                     </div>
                   )}
                   
@@ -556,10 +659,16 @@ export function ChatInterface() {
             <div className="w-6 h-6 sm:w-8 sm:h-8 flex items-center justify-center flex-shrink-0">
               <img src="/Robo.png" alt="Assistente" className="w-6 h-6 sm:w-8 sm:h-8 rounded-full object-cover" />
             </div>
-            <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
-              <p className="text-foreground text-sm sm:text-base" data-testid={`contextual-message-${contextMsg.id}`}>
-                {contextMsg.content}
-              </p>
+            <div className="space-y-2">
+              <div className="bg-muted rounded-lg p-3 sm:p-4 max-w-[85%] sm:max-w-md">
+                <p className="text-foreground text-sm sm:text-base" data-testid={`contextual-message-${contextMsg.id}`}>
+                  {contextMsg.content}
+                </p>
+              </div>
+              {/* Detectar e mostrar botões WhatsApp em mensagens contextuais */}
+              {detectPhoneNumbers(contextMsg.content).map((phone, index) => (
+                <WhatsAppButton key={`${phone}-${index}`} phone={phone} />
+              ))}
             </div>
           </div>
         );
