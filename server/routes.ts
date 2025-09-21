@@ -9,8 +9,8 @@ import { randomUUID } from "crypto";
 // Visit detection and contact enforcement constants
 const VISIT_CONTACT_PHONE = "(12) 98163-1540";
 
-// More specific regex pattern for visit detection - avoids false positives
-const VISIT_KEYWORDS_REGEX = /(visitar|\bvisita\b|agendar(\s+uma)?\s+visita|marcar(\s+uma)?\s+visita|ver\s+(o|a)?\s*(imovel|imóvel|casa|apartamento)\s*(pessoalmente|ao vivo)?|conhecer\s+(o|a)?\s*(imovel|imóvel|casa|apartamento)\s*pessoalmente|ir\s+(visitar|ver)\s+(o|a)?\s*(imovel|imóvel|casa|apartamento))/i;
+// Improved regex pattern for visit detection - captures more cases correctly
+const VISIT_KEYWORDS_REGEX = /(visitar|\bvisita\b|agendar(\s+uma)?\s+visita|marcar(\s+uma)?\s+visita|ver\s+(o|a)?\s*(imovel|imóvel|casa|apartamento)\s*(pessoalmente|ao vivo)?|conhecer\s+(o|a)?\s*(imovel|imóvel|casa|apartamento)(\s*pessoalmente)?|ir\s+(visitar|ver)\s+(o|a)?\s*(imovel|imóvel|casa|apartamento)|gostaria\s+de\s+(visitar|ver\s+(o|a)?\s*(imovel|imóvel|casa|apartamento))|quero\s+(visitar|conhecer)\s+(o|a)?\s*(imovel|imóvel|casa|apartamento)?)/i;
 
 // Function to normalize diacritics (accents) for better text matching
 function normalizeAccents(text: string): string {
@@ -23,7 +23,15 @@ function normalizeAccents(text: string): string {
 // Helper functions for visit detection and contact enforcement
 function isVisitRequest(message: string): boolean {
   const normalizedMessage = normalizeAccents(message);
-  return VISIT_KEYWORDS_REGEX.test(normalizedMessage);
+  const result = VISIT_KEYWORDS_REGEX.test(normalizedMessage);
+  
+  // DETAILED DEBUG LOGGING for visit detection
+  console.log(`[VISIT_DEBUG] Testing message: "${message}"`);
+  console.log(`[VISIT_DEBUG] Normalized: "${normalizedMessage}"`);
+  console.log(`[VISIT_DEBUG] Regex test result: ${result}`);
+  console.log(`[VISIT_DEBUG] Used regex: ${VISIT_KEYWORDS_REGEX}`);
+  
+  return result;
 }
 
 // More restrictive visit response detection - requires proximity to visit terms
@@ -368,13 +376,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           // VISIT DETECTION AND RELIABILITY IMPROVEMENTS
           const userMessage = message.content;
+          
+          console.log(`[VISIT_DEBUG] Starting visit detection for session ${sessionId}`);
+          console.log(`[VISIT_DEBUG] Full user message: "${userMessage}"`);
+          
           const isUserRequestingVisit = isVisitRequest(userMessage);
           const isResponseAboutVisit = isVisitResponse(aiResponse.responseMessage);
           
-          console.log(`[DEBUG] Visit detection for session ${sessionId}:`, {
+          console.log(`[VISIT_DEBUG] Visit detection results for session ${sessionId}:`, {
             isUserRequestingVisit,
             isResponseAboutVisit,
-            userMessage: userMessage.substring(0, 100) + "..."
+            userMessage: userMessage.substring(0, 100) + "...",
+            fullUserMessage: userMessage
           });
 
           // Apply visit detection rules with defensive defaults
@@ -385,14 +398,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // UNIFIED LOGIC: Only apply visit rules when user is ACTUALLY requesting a visit
           // This prevents interference with normal chat while maintaining precise visit detection
           if (isUserRequestingVisit) {
-            console.log(`[VISIT] Real visit request detected for session ${sessionId}, applying reliability improvements`);
+            console.log(`[VISIT] 🎯 REAL VISIT REQUEST DETECTED for session ${sessionId}!`);
+            console.log(`[VISIT] Original response message: "${finalResponseMessage}"`);
+            console.log(`[VISIT] Contact phone to include: ${VISIT_CONTACT_PHONE}`);
             
             // Force include contact phone if not already present
+            const originalMessage = finalResponseMessage;
             finalResponseMessage = ensureContactInMessage(finalResponseMessage, VISIT_CONTACT_PHONE);
+            
+            console.log(`[VISIT] Message changed: ${originalMessage !== finalResponseMessage}`);
+            console.log(`[VISIT] Final response message: "${finalResponseMessage}"`);
             
             // Force propertyIds = [] for visit requests (prevents property recommendations during visit scheduling)
             finalPropertyIds = [];
             console.log(`[VISIT] Forced propertyIds = [] for visit request in session ${sessionId}`);
+          } else {
+            console.log(`[VISIT] ❌ No visit request detected for session ${sessionId}`);
           }
 
           // Get full property details for recommended properties
