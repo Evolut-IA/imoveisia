@@ -6,6 +6,45 @@ import { insertPropertySchema, insertChatMessageSchema, insertConversationSchema
 import { generateChatResponse, splitMessageIntoChunks, generateContextualMessage } from "./services/openai";
 import { randomUUID } from "crypto";
 
+// Visit detection and contact enforcement constants
+const VISIT_CONTACT_PHONE = "(12) 98163-1540";
+
+// More specific regex pattern for visit detection - avoids false positives
+const VISIT_KEYWORDS_REGEX = /(visitar|\bvisita\b|agendar(\s+uma)?\s+visita|marcar(\s+uma)?\s+visita|ver\s+(o|a)?\s*(imovel|imóvel|casa|apartamento)\s*(pessoalmente|ao vivo)?|conhecer\s+(o|a)?\s*(imovel|imóvel|casa|apartamento)\s*pessoalmente|ir\s+(visitar|ver)\s+(o|a)?\s*(imovel|imóvel|casa|apartamento))/i;
+
+// Function to normalize diacritics (accents) for better text matching
+function normalizeAccents(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove diacritics
+    .toLowerCase();
+}
+
+// Helper functions for visit detection and contact enforcement
+function isVisitRequest(message: string): boolean {
+  const normalizedMessage = normalizeAccents(message);
+  return VISIT_KEYWORDS_REGEX.test(normalizedMessage);
+}
+
+// More restrictive visit response detection - requires proximity to visit terms
+function isVisitResponse(responseMessage: string): boolean {
+  const normalizedResponse = normalizeAccents(responseMessage);
+  // More restrictive pattern requiring actual visit/scheduling context
+  const restrictiveVisitPattern = /(visita[rs]?|agendar.*visita|marcar.*visita|horario.*visita|disponibilidade.*visita|encontro.*visita)/i;
+  return restrictiveVisitPattern.test(normalizedResponse);
+}
+
+function ensureContactInMessage(message: string, contactPhone: string): string {
+  // Check if contact is already present in the message
+  if (message.includes(contactPhone)) {
+    return message;
+  }
+  
+  // Add contact information to the message
+  const contactInfo = `\n\nPara agendar sua visita, entre em contato pelo telefone ${contactPhone}.`;
+  return message + contactInfo;
+}
+
 interface ChatSession {
   id: string;
   socket: WebSocket;
@@ -327,30 +366,59 @@ export async function registerRoutes(app: Express): Promise<Server> {
             responseMessage: aiResponse.responseMessage
           });
 
+          // VISIT DETECTION AND RELIABILITY IMPROVEMENTS
+          const userMessage = message.content;
+          const isUserRequestingVisit = isVisitRequest(userMessage);
+          const isResponseAboutVisit = isVisitResponse(aiResponse.responseMessage);
+          
+          console.log(`[DEBUG] Visit detection for session ${sessionId}:`, {
+            isUserRequestingVisit,
+            isResponseAboutVisit,
+            userMessage: userMessage.substring(0, 100) + "..."
+          });
+
+          // Apply visit detection rules with defensive defaults
+          let finalResponseMessage = aiResponse.responseMessage;
+          // Defensive default for propertyIds
+          let finalPropertyIds = Array.isArray(aiResponse.propertyIds) ? aiResponse.propertyIds : [];
+
+          // UNIFIED LOGIC: Only apply visit rules when user is ACTUALLY requesting a visit
+          // This prevents interference with normal chat while maintaining precise visit detection
+          if (isUserRequestingVisit) {
+            console.log(`[VISIT] Real visit request detected for session ${sessionId}, applying reliability improvements`);
+            
+            // Force include contact phone if not already present
+            finalResponseMessage = ensureContactInMessage(finalResponseMessage, VISIT_CONTACT_PHONE);
+            
+            // Force propertyIds = [] for visit requests (prevents property recommendations during visit scheduling)
+            finalPropertyIds = [];
+            console.log(`[VISIT] Forced propertyIds = [] for visit request in session ${sessionId}`);
+          }
+
           // Get full property details for recommended properties
           const recommendedProperties: any[] = [];
-          for (const propertyId of aiResponse.propertyIds) {
+          for (const propertyId of finalPropertyIds) {
             const property = await storage.getProperty(propertyId);
             if (property) {
               recommendedProperties.push(property);
             }
           }
 
-          console.log(`[DEBUG] Recommended properties for session ${sessionId}:`, {
+          console.log(`[DEBUG] Final properties for session ${sessionId}:`, {
             count: recommendedProperties.length,
             properties: recommendedProperties.map(p => ({ id: p.id, title: p.title }))
           });
 
-          // Store assistant message
+          // Store assistant message with final processed content
           await storage.createChatMessage({
             sessionId: sessionId,
             role: 'assistant',
-            content: aiResponse.responseMessage,
-            propertyIds: aiResponse.propertyIds
+            content: finalResponseMessage,
+            propertyIds: finalPropertyIds
           });
 
-          // Split message into chunks and send with delays
-          const messageChunks = splitMessageIntoChunks(aiResponse.responseMessage);
+          // Split message into chunks and send with delays (using final processed message)
+          const messageChunks = splitMessageIntoChunks(finalResponseMessage);
           
           let accumulatedContent = '';
           let totalDelay = 0;
