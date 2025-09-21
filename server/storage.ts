@@ -1077,6 +1077,22 @@ export class MemStorage implements IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  private initialized = false;
+
+  async ensureInitialized() {
+    if (this.initialized) return;
+    
+    // Check if we have any properties in the database (direct SQL to avoid recursion)
+    const result = await db.select({ count: sql<number>`count(*)` }).from(properties);
+    const propertyCount = result[0]?.count || 0;
+    
+    if (propertyCount === 0) {
+      console.log('🏠 Database is empty, loading sample properties...');
+      await this.initializeSampleData();
+    }
+    
+    this.initialized = true;
+  }
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
     return user || undefined;
@@ -1130,6 +1146,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getAllProperties(): Promise<Property[]> {
+    await this.ensureInitialized();
     return await db.select().from(properties);
   }
 
@@ -1195,6 +1212,139 @@ export class DatabaseStorage implements IStorage {
     const [conversation] = await db.select().from(conversations)
       .where(eq(conversations.sessionId, sessionId));
     return conversation || undefined;
+  }
+
+  private async initializeSampleData() {
+    console.log('🏠 Initializing sample properties in database...');
+    
+    const sampleProperties: InsertProperty[] = [
+      // Maresias - 2 properties
+      {
+        title: "Casa de Praia Maresias Vista Mar",
+        propertyType: "casa",
+        description: "Casa de praia em Maresias com vista direta para o mar, ideal para relaxar e curtir as famosas ondas desta praia badalada. Local perfeito para surfistas e amantes da vida noturna.",
+        state: "SP",
+        city: "São Sebastião",
+        neighborhood: "Maresias",
+        address: "Rua das Ondas, 123",
+        zipCode: "11600-000",
+        bedrooms: 4,
+        bathrooms: 3,
+        parkingSpaces: 2,
+        area: 250,
+        price: "2800000.00",
+        condoFee: "0.00",
+        iptu: "4200.00",
+        businessType: "venda",
+        amenities: ["vista-mar", "churrasqueira", "jardim", "piscina"],
+        mainImage: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?ixlib=rb-4.0.3",
+        contactName: "Carlos Martins",
+        contactPhone: "(12) 99999-1111",
+        contactEmail: "carlos@maresias.com"
+      },
+      {
+        title: "Apartamento Maresias Centro", 
+        propertyType: "apartamento",
+        description: "Apartamento moderno no centro de Maresias, próximo às famosas barracas de praia e vida noturna agitada. Ótimo investimento para temporada.",
+        state: "SP",
+        city: "São Sebastião",
+        neighborhood: "Maresias",
+        address: "Avenida Dr. Francisco Loup, 456",
+        zipCode: "11600-000",
+        bedrooms: 2,
+        bathrooms: 2,
+        parkingSpaces: 1,
+        area: 85,
+        price: "950000.00",
+        condoFee: "450.00",
+        iptu: "1800.00",
+        businessType: "venda",
+        amenities: ["portaria", "elevador", "salao-festas"],
+        mainImage: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3",
+        contactName: "Ana Rodrigues",
+        contactPhone: "(12) 98888-2222",
+        contactEmail: "ana@maresias.com"
+      },
+      {
+        title: "Casa Luxo Juquehy Frente Mar",
+        propertyType: "casa",
+        description: "Casa de alto padrão na famosa praia de Juquehy, conhecida por suas águas cristalinas e atmosfera familiar. Perfeita para quem busca tranquilidade sem abrir mão do luxo.",
+        state: "SP",
+        city: "São Sebastião", 
+        neighborhood: "Juquehy",
+        address: "Rua da Praia, 78",
+        zipCode: "11600-000",
+        bedrooms: 5,
+        bathrooms: 4,
+        parkingSpaces: 3,
+        area: 350,
+        price: "3500000.00",
+        condoFee: "0.00",
+        iptu: "5200.00",
+        businessType: "venda",
+        amenities: ["vista-mar", "piscina", "churrasqueira", "jardim", "hidromassagem"],
+        mainImage: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?ixlib=rb-4.0.3",
+        contactName: "Marina Costa",
+        contactPhone: "(12) 97777-3333",
+        contactEmail: "marina@juquehy.com"
+      },
+      {
+        title: "Casa Família Boiçucanga",
+        propertyType: "casa",
+        description: "Casa espaçosa em Boiçucanga, praia conhecida pela tranquilidade e beleza natural preservada. Excelente para famílias com crianças e quem aprecia a natureza.",
+        state: "SP",
+        city: "São Sebastião",
+        neighborhood: "Boiçucanga",
+        address: "Rua das Estrelas do Mar, 156",
+        zipCode: "11600-000",
+        bedrooms: 4,
+        bathrooms: 3,
+        parkingSpaces: 2,
+        area: 200,
+        price: "1800000.00",
+        condoFee: "0.00",
+        iptu: "3000.00",
+        businessType: "venda",
+        amenities: ["jardim", "churrasqueira", "piscina", "area-gourmet"],
+        mainImage: "https://images.unsplash.com/photo-1583608205776-bfd35f0d9f83?ixlib=rb-4.0.3",
+        contactName: "Pedro Santos",
+        contactPhone: "(12) 95555-5555",
+        contactEmail: "pedro@boicucanga.com"
+      },
+      {
+        title: "Apartamento Tranquilo Paúba",
+        propertyType: "apartamento",
+        description: "Apartamento em ambiente tranquilo de Paúba, ideal para quem valoriza silêncio e proximidade com a natureza preservada.",
+        state: "SP",
+        city: "São Sebastião",
+        neighborhood: "Paúba",
+        address: "Avenida da Paz, 189",
+        zipCode: "11600-000",
+        bedrooms: 2,
+        bathrooms: 2,
+        parkingSpaces: 1,
+        area: 90,
+        price: "850000.00",
+        condoFee: "280.00",
+        iptu: "1400.00",
+        businessType: "venda",
+        amenities: ["portaria", "jardim", "piscina", "vista-natureza"],
+        mainImage: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3",
+        contactName: "Patrícia Nunes",
+        contactPhone: "(12) 86666-5050",
+        contactEmail: "patricia@pauba.com"
+      }
+    ];
+
+    for (const property of sampleProperties) {
+      try {
+        await this.createProperty(property);
+      } catch (error) {
+        console.error('❌ Error creating sample property:', property.title, error);
+      }
+    }
+
+    console.log(`✅ Initialized ${sampleProperties.length} sample properties in database`);
   }
 }
 
