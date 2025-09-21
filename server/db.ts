@@ -2,8 +2,8 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import * as schema from "@shared/schema";
 
-// Use the new PostgreSQL database
-const databaseUrl = process.env.DATABASE_URL || process.env.BANCODEDADOS;
+// Use the external PostgreSQL database with fallback to local
+const databaseUrl = process.env.BANCODEDADOS || process.env.DATABASE_URL;
 
 if (!databaseUrl) {
   throw new Error(
